@@ -65,7 +65,7 @@ function checkUpdate()
     end
 
     setState("lastCheckTime", os.time())
-    noctalia.runAsync("date", function(date) setState("lastCheckTimeStr", date.stdout) end)
+    noctalia.runAsync("date '+%Y-%m-%d %H:%M'", function(date) setState("lastCheckTimeStr", date.stdout) end)
 
     if cfg("show_checking_notification") then
         noctalia.notify(tr("notification.checking_update"))
