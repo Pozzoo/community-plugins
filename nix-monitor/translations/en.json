@@ -34,6 +34,8 @@
   "setting.widget.unknown_color.label": "Unknown status color",
   "setting.check_interval.label": "Update check interval",
   "setting.check_interval.description": "How often to check for updates (in minutes)",
+  "setting.check_duration_threshold.label": "Update check duration threshold",
+  "setting.check_duration_threshold.description": "Cancel check if it took too long (in minutes)",
   "setting.system_stats_check_interval.label": "System stats check interval",
   "setting.system_stats_check_interval.description": "How often to check for system stats (in minutes)",
   "setting.checking_notification.label": "Show checking update notification",

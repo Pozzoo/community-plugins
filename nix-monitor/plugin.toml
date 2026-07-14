@@ -94,6 +94,15 @@ default         = 60
 min             = 10
 
 [[setting]]
+key             = "check_duration_threshold"
+type            = "int"
+label_key       = "setting.check_duration_threshold.label"
+description_key = "setting.check_duration_threshold.description"
+default         = 5
+min             = 1
+max             = 30
+
+[[setting]]
 key             = "system_stats_check_interval"
 type            = "int"
 label_key       = "setting.system_stats_check_interval.label"
