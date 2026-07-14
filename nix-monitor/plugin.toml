@@ -16,73 +16,73 @@ entry   = "nix_monitor.luau"
 [[widget.setting]]
 key         = "show_text"
 type        = "bool"
-label_key   = "setting.show_text.label"
+label_key   = "setting.widget.show_text.label"
 default     = true
 
 [[widget.setting]]
 key         = "colorize_text"
 type        = "bool"
-label_key   = "setting.colorize_text.label"
+label_key   = "setting.widget.colorize_text.label"
 default     = false
 
 [[widget.setting]]
 key         = "show_glyph"
 type        = "bool"
-label_key   = "setting.show_glyph.label"
+label_key   = "setting.widget.show_glyph.label"
 default     = true
 
 [[widget.setting]]
 key         = "colorize_glyph"
 type        = "bool"
-label_key   = "setting.colorize_glyph.label"
+label_key   = "setting.widget.colorize_glyph.label"
 default     = true
 
 [[widget.setting]]
 key         = "up_to_date_glyph"
 type        = "glyph"
-label_key   = "setting.up_to_date_glyph.label"
+label_key   = "setting.widget.up_to_date_glyph.label"
 default     = "rosette-discount-check"
 
 [[widget.setting]]
 key         = "up_to_date_color"
 type        = "color"
-label_key   = "setting.up_to_date_color.label"
+label_key   = "setting.widget.up_to_date_color.label"
 default     = "#57ff57"
 
 [[widget.setting]]
 key         = "checking_glyph"
 type        = "glyph"
-label_key   = "setting.checking_glyph.label"
+label_key   = "setting.widget.checking_glyph.label"
 default     = "loader-3"
 
 [[widget.setting]]
 key         = "checking_color"
 type        = "color"
-label_key   = "setting.checking_color.label"
+label_key   = "setting.widget.checking_color.label"
 default     = "#ffeb57"
 
 [[widget.setting]]
 key         = "update_available_glyph"
 type        = "glyph"
-label_key   = "setting.update_available_glyph.label"
+label_key   = "setting.widget.update_available_glyph.label"
 default     = "cloud-download"
 
 [[widget.setting]]
 key         = "update_available_color"
 type        = "color"
-label_key   = "setting.update_available_color.label"
+label_key   = "setting.widget.update_available_color.label"
 default     = "#ff5757"
 
 [[widget.setting]]
 key         = "unknown_glyph"
 type        = "glyph"
-label_key   = "setting.unknown_glyph.label"
+label_key   = "setting.widget.unknown_glyph.label"
 default     = "cloud-question"
 
 [[widget.setting]]
 key         = "unknown_color"
 type        = "color"
-label_key   = "setting.unknown_color.label"
+label_key   = "setting.widget.unknown_color.label"
 default     = "on_surface"
 
 [[setting]]
