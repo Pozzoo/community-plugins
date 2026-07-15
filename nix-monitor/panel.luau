@@ -72,7 +72,7 @@ local function statLabel(text, glyph: string?)
 end
 
 local function render()
-    local firstBtn = btnCheck
+    local firstBtn
 
     if getState("isRemoteCheckRunning") then
         firstBtn = ui.button({
