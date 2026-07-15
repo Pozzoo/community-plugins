@@ -1,10 +1,9 @@
-
 function tr(key)
     return noctalia.tr(key)
 end
 
-function barCfg(key)
-    return barWidget.getConfig(key)
+function cfg(key)
+    return noctalia.getConfig(key)
 end
 
 function getState(key)
@@ -16,19 +15,19 @@ function displayWidget(glyph: string, text: string, color: string?)
         color = "on_surface"
     end
 
-    if barCfg("colorize_text") then
+    if cfg("colorize_text") then
         barWidget.setColor(color)
     end
 
-    if barCfg("colorize_glyph") then
+    if cfg("colorize_glyph") then
         barWidget.setGlyphColor(color)
     end
 
-    if barCfg("show_glyph") then
+    if cfg("show_glyph") then
         barWidget.setGlyph(glyph)
     end
 
-    if barCfg("show_text") then
+    if cfg("show_text") then
         barWidget.setText(text)
     end
 end
@@ -36,15 +35,15 @@ end
 -- Hooks
 function update()
     if getState("isRemoteCheckRunning") then
-        displayWidget(barCfg("checking_glyph"), tr("bar.checking"), barCfg("checking_color"))
+        displayWidget(cfg("checking_glyph"), tr("bar.checking"), cfg("checking_color"))
     else
         if getState("isUpdateAvailable") then
-            displayWidget(barCfg("update_available_glyph"), tr("bar.update_available"), barCfg("update_available_color"))
+            displayWidget(cfg("update_available_glyph"), tr("bar.update_available"), cfg("update_available_color"))
         else
             if getState("localHash") == "n/a" or getState("remoteHash") == "n/a" then
-                displayWidget(barCfg("unknown_glyph"), tr("bar.unknown"), barCfg("unknown_color"))
+                displayWidget(cfg("unknown_glyph"), tr("bar.unknown"), cfg("unknown_color"))
             else
-                displayWidget(barCfg("up_to_date_glyph"), tr("bar.up_to_date"), barCfg("up_to_date_color"))
+                displayWidget(cfg("up_to_date_glyph"), tr("bar.up_to_date"), cfg("up_to_date_color"))
             end
         end
     end

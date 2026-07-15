@@ -4,10 +4,6 @@ function tr(key)
     return noctalia.tr(key)
 end
 
-function barCfg(key)
-    return barWidget.getConfig(key)
-end
-
 function cfg(key)
     return noctalia.getConfig(key)
 end
