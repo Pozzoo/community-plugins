@@ -123,7 +123,10 @@ function onRemoteHashCheckCompleted()
     end
 
     setState("lastRemoteCheckTime", os.time())
-    noctalia.runAsync("date '+%Y-%m-%d %H:%M'", function(date) setState("lastRemoteCheckTimeStr", date.stdout) end)
+
+    local date = noctalia.formatTime("%Y-%m-%d %H:%M:%S")
+    setState("lastRemoteCheckTimeStr", date)
+
     noctalia.removeFile(remotePidFile)
 end
 
