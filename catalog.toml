@@ -129,3 +129,14 @@ icon = "checklist"
 description = "A prioritised to-do list in a bar panel: editable tasks with low/medium/important colour chips, a done/to-do toggle that strikes completed text through, and ordering that switches between priority-sorted and manual (drag-free ☰ grip reorder)."
 min_noctalia = "5.0.0"
 tags = ["bar", "panel", "productivity"]
+
+[[plugin]]
+id = "8bury/mini-docker"
+name = "Mini Docker"
+version = "1.0.3"
+author = "8bury"
+license = "MIT"
+icon = "brand-docker"
+description = "Manage Docker containers, images, volumes, and networks from Noctalia."
+min_noctalia = "5.0.0"
+tags = ["bar", "panel", "service", "development", "system", "utility"]
