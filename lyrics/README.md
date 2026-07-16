@@ -30,6 +30,16 @@ When synchronized lyrics are unavailable, the widget displays
 `track title + artist`. Long lines pause at each end while scrolling. Intro and
 instrumental gaps can show a configurable cue such as `•••••`.
 
+## Screenshots
+
+Status-bar widget:
+
+![Lyrics bar widget](screenshots/widget.webp)
+
+Plugin settings:
+
+![Lyrics settings](screenshots/settings.webp)
+
 ## Settings
 
 | Setting | Type | Default | Description |
