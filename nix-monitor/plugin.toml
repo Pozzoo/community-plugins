@@ -188,6 +188,20 @@ description_key = "setting.clean_command.description"
 default         = "nix-collect-garbage -d"
 
 [[setting]]
+key             = "hide_update_button"
+type            = "bool"
+label_key       = "setting.hide_update_button.label"
+description_key = "setting.hide_update_button.description"
+default         = false
+
+[[setting]]
+key             = "hide_clean_button"
+type            = "bool"
+label_key       = "setting.hide_clean_button.label"
+description_key = "setting.hide_clean_button.description"
+default         = false
+
+[[setting]]
 key             = "close_on_enter"
 type            = "bool"
 label_key       = "setting.close_on_enter.label"

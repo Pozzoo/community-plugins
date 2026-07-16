@@ -74,34 +74,44 @@ local function statLabel(text, glyph: string?)
 end
 
 local function render()
-    local firstBtn
+    local buttons = {}
 
     if getState("isRemoteCheckRunning") then
-        firstBtn = ui.button({
+        table.insert(buttons, ui.button({
             text = tr("panel.cancel"),
             glyph = "cancel",
             flexGrow = 1,
             variant = "destructive",
             onClick = "onCancelClicked",
-        })
+        }))
     else
-        if getState("isUpdateAvailable") then
-            firstBtn = ui.button({
+        if getState("isUpdateAvailable") and not cfg("hide_update_button") then
+            table.insert(buttons, ui.button({
                 text = tr("panel.update"),
                 glyph = "progress-down",
                 flexGrow = 1,
                 variant = "primary",
                 onClick = "onUpdateClicked",
-            })
+            }))
         else
-            firstBtn = ui.button({
+            table.insert(buttons, ui.button({
                 text = tr("panel.check"),
                 glyph = "search",
                 flexGrow = 1,
                 variant = "outline",
                 onClick = "onCheckClicked",
-            })
+            }))
         end
+    end
+
+    if not cfg("hide_clean_button") then
+        table.insert(buttons, ui.button({
+            text = tr("panel.clean"),
+            glyph = "trash",
+            flexGrow = 1,
+            variant = "destructive",
+            onClick = "onCleanClicked",
+        }))
     end
 
     local lastCheckTimeStr = getState("lastRemoteCheckTimeStr")
@@ -192,16 +202,7 @@ local function render()
                 gap = 8,
                 align = "center",
                 justify = "space_between"
-            }, {
-                firstBtn,
-                ui.button({
-                    text = tr("panel.clean"),
-                    glyph = "trash",
-                    flexGrow = 1,
-                    variant = "destructive",
-                    onClick = "onCleanClicked",
-                }),
-            })
+            }, buttons)
         })
     )
 end
