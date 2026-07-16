@@ -57,7 +57,7 @@ local function statLabel(text, glyph: string?)
     if glyph ~= nil then
         table.insert(items, ui.glyph({
             name = glyph,
-            size = 18
+            size = 16
         }))
     end
 
@@ -130,12 +130,12 @@ local function render()
             }, {
                 ui.label({
                     text = tr("panel.title"),
-                    fontSize = 20,
+                    fontSize = 16,
                 }),
 
                 ui.label({
                     text = cfg("branch"),
-                    fontSize = 14,
+                    fontSize = 12,
                 }),
             }),
             ui.separator({
@@ -184,7 +184,8 @@ local function render()
                 spacing = 4
             }),
             ui.label({
-                text = `{tr("panel.last_checked")}: {lastCheckTimeStr}`
+                text = `{tr("panel.last_checked")}: {lastCheckTimeStr}`,
+                fontSize = 12
             }),
             ui.row({
                 gap = 8,
