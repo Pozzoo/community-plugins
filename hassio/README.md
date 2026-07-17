@@ -58,7 +58,15 @@ noctalia msg panel-toggle pozzoo/hassio:entity_manager
 noctalia msg panel-toggle pozzoo/hassio:entity_manager
 ```
 
-Notes: the plugin forwards Home Assistant state updates internally and uses Noctalia's state routing to update widgets and shortcuts; there are no documented user-facing plugin IPC commands beyond the panel opener.
+- Force a refresh of the connection and entity states:
+
+```sh
+noctalia msg plugin pozzoo/hassio:status focused refresh
+```
+
+Use `all` in place of `focused` to target every bar instance. This triggers the same refresh as sending the `refresh` command internally, and shows a notification when it starts.
+
+Notes: the plugin forwards Home Assistant state updates internally and uses Noctalia's state routing to update widgets and shortcuts.
 
 ## Notes
 
