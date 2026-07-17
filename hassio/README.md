@@ -14,7 +14,8 @@ Monitor and control your Home Assistant entities from the Noctalia bar and contr
 
 - A running Home Assistant instance with API access enabled
 - A Long-lived Access Token (Profile → Security → Long-lived access tokens)
-- `curl` available on `PATH` (used by the plugin to call HA HTTP endpoints)
+- `curl` available on `PATH` (used by the plugin to initiate HA HTTP streaming)
+- `xdg-open` available on `PATH` (used to open the Home Assistant URL in your browser)
 
 ## Usage
 
@@ -26,7 +27,7 @@ Monitor and control your Home Assistant entities from the Noctalia bar and contr
    | Long-Lived Access Token | Token created in HA under Profile → Security |
    | Quick Toggle 1–4 — Entity ID | (Optional) Entity IDs to assign to each quick-toggle tile (e.g. `light.living_room`) |
 
-2. Add the bar widget: add the **status** widget from the widget picker to show connection state and (optionally) the number of monitored entities.
+2. Add the bar widget: add the **status** widget from the widget picker to show connection state and (optionally) the number of monitored entities. Right-click the widget to open your Home Assistant URL in the default browser.
 
 3. Add control-center tiles: go to **Settings → Control Center** and add any combination of:
    - **Home Assistant** (×4) — Quick-toggle tiles. Each corresponds to one of the four entity slots configured in plugin settings.

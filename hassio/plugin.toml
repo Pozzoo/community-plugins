@@ -6,7 +6,7 @@ author = "Pozzoo"
 license = "MIT"
 tags = ["bar", "panel", "service", "shortcut", "network", "indicator"]
 icon = "smart-home"
-dependencies = ["curl"]
+dependencies = ["curl", "xdg-open"]
 description = "Monitor and control Home Assistant entities from the bar. Displays entity states and provides quick toggles."
 
 [[setting]]
