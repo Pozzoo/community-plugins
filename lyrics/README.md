@@ -70,6 +70,8 @@ Plugin settings:
 | `show_artist` | `bool` | `true` | Includes the artist in track-information mode. |
 | `hide_when_paused` | `bool` | `false` | Hides the widget instead of dimming it while paused. |
 | `show_cover` | `bool` | `true` | Shows circular album artwork beside the lyrics. |
+| `active_color` | `color` | `primary` | Colors the current and already-sung lyric characters. |
+| `inactive_color` | `color` | `on_surface_variant` | Colors upcoming lyrics, paused playback, and secondary lines. |
 
 ## IPC
 
