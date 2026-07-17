@@ -28,12 +28,16 @@ end
 local function haPost(path, body)
     if not haUrl or haUrl == "" or not haToken or haToken == "" then return end
     local encodedBody = noctalia.json.encode(body)
-    local cmd = "curl -s -o /dev/null -X POST"
-        .. " -H " .. escapeArg("Authorization: Bearer " .. haToken)
-        .. " -H " .. escapeArg("Content-Type: application/json")
-        .. " -d " .. escapeArg(encodedBody)
-        .. " " .. escapeArg(haUrl .. path)
-    noctalia.runAsync(cmd)
+
+    noctalia.http({
+        url = haUrl .. path,
+        method = "POST",
+        headers = {
+            ["Authorization"] = "Bearer " .. haToken,
+            ["Content-Type"] = "application/json",
+        },
+        body = encodedBody,
+    }, function(response: HttpResponse)end)
 end
 
 local function callService(domain, service, entityId)
@@ -87,13 +91,16 @@ local function fetchAllEntities()
     if browserLoading then return end
     browserLoading = true
     render()
-    local cmd = "curl -s"
-        .. " -H " .. escapeArg("Authorization: Bearer " .. haToken)
-        .. " " .. escapeArg(haUrl .. "/api/states")
-    noctalia.runAsync(cmd, function(result)
+
+    noctalia.http({
+        url = haUrl .. "/api/states",
+        headers = {
+            ["Authorization"] = "Bearer " .. haToken,
+        }
+    }, function(response: HttpResponse)
         browserLoading = false
-        if result and result.stdout and result.stdout ~= "" then
-            local states = noctalia.json.decode(result.stdout)
+        if response and response.body and response.body ~= "" then
+            local states = noctalia.json.decode(response.body)
             if type(states) == "table" then
                 allEntities = {}
                 for _, s in ipairs(states) do

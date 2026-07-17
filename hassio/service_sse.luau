@@ -34,42 +34,35 @@ end
 local function haRequest(endpoint, method, body, callback)
   if not isConfigured() then return end
 
-  if not noctalia.commandExists("curl") then
-    noctalia.log("curl not found, cannot make HTTP requests")
-    return
-  end
-
   local url = haUrl .. endpoint
   local cleanToken = haToken:gsub("^%s+", ""):gsub("%s+$", "")
 
-  local cmd = "curl -s -w '\nHTTP_STATUS:%{http_code}' -X " .. (method or "GET") ..
-              " -H " .. escapeShellArg("Authorization: Bearer " .. cleanToken) ..
-              " -H " .. escapeShellArg("Content-Type: application/json")
-
+  local jsonBody
   if body then
-    local jsonBody = noctalia.json.encode(body)
-    cmd = cmd .. " -d " .. escapeShellArg(jsonBody)
+    jsonBody = noctalia.json.encode(body)
   end
 
-  cmd = cmd .. " " .. escapeShellArg(url)
+  noctalia.http({
+      url = url,
+      method = method,
+      body = jsonBody,
+      headers = {
+        ["Authorization"] = "Bearer " .. cleanToken,
+        ["Content-Type"] = "application/json",
+      }
+  }, function(response: HttpResponse)
+      if not response then
+        callback({ ok = false, status = 0, body = "No response" })
+        return
+      end
 
-  noctalia.runAsync(cmd, function(result)
-    if not result then
-      callback({ ok = false, status = 0, body = "No response" })
-      return
-    end
-
-    local output = result.stdout or ""
-    local statusMatch = output:match("HTTP_STATUS:(%d+)")
-    local httpStatus = tonumber(statusMatch) or 0
-    local body = output:gsub("\nHTTP_STATUS:%d+$", "")
-
-    callback({
-      ok = httpStatus >= 200 and httpStatus < 300,
-      status = httpStatus,
-      body = body
-    })
+      callback({
+        ok = response.status >= 200 and response.status < 300,
+        status = response.status,
+        body = response.body
+      })
   end)
+
 end
 
 local function supportsColorMode(modes, targets)
@@ -252,11 +245,6 @@ end
 function startSSEStream()
   if suspended then return end
   if sseActive then return end
-
-  if not noctalia.commandExists("curl") then
-    noctalia.log("curl not found, cannot use SSE")
-    return
-  end
 
   local url = haUrl .. "/api/stream?restrict=state_changed"
   local cmd = "curl -N -H " .. escapeShellArg("Authorization: Bearer " .. haToken) ..

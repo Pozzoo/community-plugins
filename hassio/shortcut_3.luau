@@ -71,7 +71,10 @@ noctalia.state.watch("entities", function(value)
     render()
 end)
 
-noctalia.state.watch("connection_status", function() render() end)
+noctalia.state.watch("connection_status", function(value)
+    status = value or "unconfigured"
+    render()
+end)
 
 function onClick()
     local entity = getEntity()
@@ -86,14 +89,19 @@ function onClick()
 
     local encoded = noctalia.json.encode({ entity_id = eid })
 
-    local cmd = "curl -s -o /dev/null -X POST"
-        .. " -H " .. escapeArg("Authorization: Bearer " .. haToken)
-        .. " -H " .. escapeArg("Content-Type: application/json")
-        .. " -d " .. escapeArg(encoded)
-        .. " " .. escapeArg(haUrl .. "/api/services/" .. entity.domain .. "/toggle")
-    noctalia.runAsync(cmd)
+    noctalia.http({
+        url = haUrl .. "/api/services/" .. entity.domain .. "/toggle",
+        method = "POST",
+        headers = {
+            ["Authorization"] = "Bearer " .. haToken,
+            ["Content-Type"] = "application/json",
+        },
+        body = encoded,
+    }, function(response)end)
+
     render()
 end
 
 entityStates = noctalia.state.get("entities") or {}
+status = noctalia.state.get("connection_status") or "unconfigured"
 render()

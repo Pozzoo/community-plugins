@@ -51,9 +51,8 @@ local function render()
     end
 
     local isOn = entity.state == "on"
-    local domain = entity.domain
     shortcut.setLabel(entity.friendly_name or eid)
-    shortcut.setIcon(stateGlyph(domain, true), stateGlyph(domain, false))
+    shortcut.setIcon(stateGlyph(entity.domain, true), stateGlyph(entity.domain, false))
     shortcut.setActive(isOn)
     shortcut.setEnabled(true)
 end
@@ -90,12 +89,16 @@ function onClick()
 
     local encoded = noctalia.json.encode({ entity_id = eid })
 
-    local cmd = "curl -s -o /dev/null -X POST"
-        .. " -H " .. escapeArg("Authorization: Bearer " .. haToken)
-        .. " -H " .. escapeArg("Content-Type: application/json")
-        .. " -d " .. escapeArg(encoded)
-        .. " " .. escapeArg(haUrl .. "/api/services/" .. entity.domain .. "/toggle")
-    noctalia.runAsync(cmd)
+    noctalia.http({
+        url = haUrl .. "/api/services/" .. entity.domain .. "/toggle",
+        method = "POST",
+        headers = {
+            ["Authorization"] = "Bearer " .. haToken,
+            ["Content-Type"] = "application/json",
+        },
+        body = encoded,
+    }, function(response)end)
+
     render()
 end
 
