@@ -14,6 +14,11 @@ local pendingTimerSeq = 0
 local PENDING_TIMEOUT_SECONDS = 8
 local render
 
+local function getCleanToken()
+    if type(haToken) ~= "string" then return "" end
+    return haToken:gsub("^%s+", ""):gsub("%s+$", "")
+end
+
 local function stateGlyph(domain, isOn)
     if domain == "light" then return isOn and "bulb" or "bulb-off"
     elseif domain == "switch" or domain == "input_boolean" then return isOn and "toggle-right" or "toggle-left"
@@ -110,7 +115,8 @@ function onClick()
     reconcilePending(os.clock())
 
     local entity = getEntity()
-    if not entity or not haUrl or haUrl == "" or not haToken or haToken == "" then return end
+    local cleanToken = getCleanToken()
+    if not entity or not haUrl or haUrl == "" or cleanToken == "" then return end
 
     local eid = entity.entity_id
     if pendingToggle[eid] then return end
@@ -125,7 +131,7 @@ function onClick()
         url = haUrl .. "/api/services/" .. entity.domain .. "/toggle",
         method = "POST",
         headers = {
-            "Authorization: Bearer " .. haToken,
+            "Authorization: Bearer " .. cleanToken,
             "Content-Type: application/json",
         },
         body = encoded,

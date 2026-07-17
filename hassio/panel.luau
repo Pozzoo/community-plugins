@@ -23,15 +23,22 @@ local searchText = ""
 local monitoredEntities = {} -- current monitored list (owned here, saved to file)
 local panelOpenCount = 0
 
+local function getCleanToken()
+    if type(haToken) ~= "string" then return "" end
+    return haToken:gsub("^%s+", ""):gsub("%s+$", "")
+end
+
 local function haPost(path, body)
-    if not haUrl or haUrl == "" or not haToken or haToken == "" then return end
+    if not haUrl or haUrl == "" then return end
+    local cleanToken = getCleanToken()
+    if cleanToken == "" then return end
     local encodedBody = noctalia.json.encode(body)
 
     noctalia.http({
         url = haUrl .. path,
         method = "POST",
         headers = {
-            "Authorization: Bearer " .. haToken,
+            "Authorization: Bearer " .. cleanToken,
             "Content-Type: application/json",
         },
         body = encodedBody,
@@ -106,13 +113,21 @@ end
 
 local function fetchAllEntities()
     if browserLoading then return end
+    local cleanToken = getCleanToken()
+    if not haUrl or haUrl == "" or cleanToken == "" then
+        allEntities = {}
+        browserLoading = false
+        render()
+        return
+    end
+
     browserLoading = true
     render()
 
     noctalia.http({
         url = haUrl .. "/api/states",
         headers = {
-            "Authorization: Bearer " .. haToken,
+            "Authorization: Bearer " .. cleanToken,
         }
     }, function(response: HttpResponse)
         browserLoading = false
@@ -466,7 +481,7 @@ local function getOrderedIds()
 end
 
 local function buildListBody(ids)
-    if not haUrl or haUrl == "" or not haToken or haToken == "" then
+    if not haUrl or haUrl == "" or getCleanToken() == "" then
         return ui.label({ text = "Plugin not configured. Set the HA URL and token in plugin settings.", color = "on_surface_variant" })
     end
     if status == "auth_failed" then
