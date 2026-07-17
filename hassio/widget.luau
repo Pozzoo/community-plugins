@@ -80,7 +80,7 @@ end
 
 function onRightClick()
   if haUrl and haUrl ~= "" then
-    noctalia.runInTerminal("xdg-open " .. ("'" .. haUrl:gsub("'", "'\\''") .. "'"))
+    noctalia.runAsync("xdg-open " .. ("'" .. haUrl:gsub("'", "'\\''") .. "'"))
   end
 end
 
