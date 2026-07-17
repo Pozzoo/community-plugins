@@ -243,6 +243,7 @@ local function fetchInitialStates()
 end
 
 local SSE_AUTH_FILE = "ha_sse_auth.cfg"
+local SSE_EXIT_SENTINEL = "##HA_SSE_STREAM_EXIT##"
 
 local function deleteSSEAuthFile()
   local dir = noctalia.pluginDataDir()
@@ -275,7 +276,8 @@ function startSSEStream()
   local url = haUrl .. "/api/stream?restrict=state_changed"
   local cmd = "curl -N -K " .. escapeShellArg(authFilePath) ..
               " -H " .. escapeShellArg("Accept: text/event-stream") ..
-              " " .. escapeShellArg(url)
+              " " .. escapeShellArg(url) ..
+              "; echo " .. escapeShellArg(SSE_EXIT_SENTINEL)
 
   noctalia.log("Starting SSE stream")
   sseActive = true
@@ -290,10 +292,11 @@ function startSSEStream()
   local launched = noctalia.runStream(cmd, function(line)
     -- Clean up as soon as possible: either curl has already read the config
     -- (first line arrived, so the request went out) or the stream ended
-    -- without ever connecting (line == nil). Guarded so it only runs once.
+    -- without ever connecting (sentinel arrived immediately). Guarded so it
+    -- only runs once.
     cleanupAuthFileOnce()
 
-    if line == nil then
+    if line == SSE_EXIT_SENTINEL then
       sseActive = false
       currentEvent = {}
       return
@@ -309,7 +312,10 @@ end
 
 noctalia.state.watch("command", function(cmd)
   if cmd == "refresh" then
-    sseActive = false
+    -- Just refetch a fresh snapshot over HTTP. Do NOT touch sseActive here:
+    -- the running stream (if any) is untouched by this, and forcing the
+    -- flag false would bypass startSSEStream()'s duplicate guard and spawn
+    -- a second curl process on top of one that's still alive.
     fetchInitialStates()
   elseif cmd == "reload_entities" then
     local override = noctalia.state.get("entities_override")
@@ -318,7 +324,11 @@ noctalia.state.watch("command", function(cmd)
     else
       entities = loadManagedEntities()
     end
-    sseActive = false
+    -- Entity filtering happens client-side in updateEntity(), so the
+    -- existing stream keeps working for the new entity list as-is.
+    -- The initial snapshot needs refetching, though, to account for any
+    -- entities that were removed from the filter. See the note above for why
+    -- sseActive must not be forced here.
     fetchInitialStates()
   end
 end)
