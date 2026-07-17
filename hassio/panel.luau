@@ -48,8 +48,20 @@ local function callLightHs(entityId, h, s)
     haPost("/api/services/light/turn_on", { entity_id = entityId, hs_color = { h, s } })
 end
 
+local MANAGED_ENTITIES_FILE = "managed_entities.json"
+
+local function managedEntitiesPath()
+    local dataDir, dirErr = noctalia.pluginDataDir()
+    if not dataDir then
+        noctalia.log("Cannot resolve plugin data dir: " .. (dirErr or "unknown"))
+        return nil
+    end
+    return dataDir .. "/" .. MANAGED_ENTITIES_FILE
+end
+
 local function loadMonitoredEntities()
-    local data = noctalia.readFile("managed_entities.json")
+    local path = managedEntitiesPath()
+    local data = path and noctalia.readFile(path)
     if data and data ~= "" then
         local parsed = noctalia.json.decode(data)
         if type(parsed) == "table" then
@@ -61,8 +73,19 @@ local function loadMonitoredEntities()
 end
 
 local function saveMonitoredEntities()
+    local path = managedEntitiesPath()
+    if not path then
+        noctalia.notifyError("Home Assistant", "Failed to save pinned entities: no plugin data directory")
+        return
+    end
+
     local encodedEntities = noctalia.json.encode(monitoredEntities)
-    noctalia.writeFile("managed_entities.json", encodedEntities)
+    local ok, writeErr = noctalia.writeFile(path, encodedEntities)
+    if not ok then
+        noctalia.log("Failed to save managed entities: " .. (writeErr or "unknown"))
+        noctalia.notifyError("Home Assistant", "Failed to save pinned entities")
+        return
+    end
     noctalia.state.set("entities_override", monitoredEntities)
     noctalia.state.set("command", "reload_entities")
 end

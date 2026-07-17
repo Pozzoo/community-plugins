@@ -3,8 +3,16 @@
 local haUrl = noctalia.getConfig("ha_url")
 local haToken = noctalia.getConfig("ha_token")
 
+local MANAGED_ENTITIES_FILE = "managed_entities.json"
+
 local function loadManagedEntities()
-  local data = noctalia.readFile("managed_entities.json")
+  local dataDir, dirErr = noctalia.pluginDataDir()
+  if not dataDir then
+    noctalia.log("Cannot resolve plugin data dir: " .. (dirErr or "unknown"))
+    return {}
+  end
+
+  local data = noctalia.readFile(dataDir .. "/" .. MANAGED_ENTITIES_FILE)
   if data and data ~= "" then
     local parsed = noctalia.json.decode(data)
     if type(parsed) == "table" then return parsed end
