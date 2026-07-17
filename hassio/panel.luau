@@ -21,10 +21,6 @@ local searchText = ""
 local monitoredEntities = {} -- current monitored list (owned here, saved to file)
 local panelOpenCount = 0
 
-local function escapeArg(s)
-    return "'" .. s:gsub("'", "'\\''" ) .. "'"
-end
-
 local function haPost(path, body)
     if not haUrl or haUrl == "" or not haToken or haToken == "" then return end
     local encodedBody = noctalia.json.encode(body)
@@ -42,10 +38,6 @@ end
 
 local function callService(domain, service, entityId)
     haPost("/api/services/" .. domain .. "/" .. service, { entity_id = entityId })
-end
-
-local function callLightHs(entityId, h, s)
-    haPost("/api/services/light/turn_on", { entity_id = entityId, hs_color = { h, s } })
 end
 
 local MANAGED_ENTITIES_FILE = "managed_entities.json"

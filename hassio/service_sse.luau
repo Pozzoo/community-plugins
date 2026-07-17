@@ -183,8 +183,6 @@ local function processSSELine(line)
       end
     end
     currentEvent.data = (currentEvent.data or "") .. data
-  elseif line:match("^id:") then
-    lastEventId = line:match("^id:%s*(.+)") or ""
   end
 end
 

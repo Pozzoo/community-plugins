@@ -9,10 +9,6 @@ local entityStates = {}
 local pendingToggle = {}
 local pendingAge = {}
 
-local function escapeArg(s)
-    return "'" .. s:gsub("'", "'\\''" ) .. "'"
-end
-
 local function stateGlyph(domain, isOn)
     if domain == "light" then return isOn and "bulb" or "bulb-off"
     elseif domain == "switch" or domain == "input_boolean" then return isOn and "toggle-right" or "toggle-left"
@@ -71,8 +67,7 @@ noctalia.state.watch("entities", function(value)
     render()
 end)
 
-noctalia.state.watch("connection_status", function(value)
-    status = value or "unconfigured"
+noctalia.state.watch("connection_status", function(_value)
     render()
 end)
 
@@ -103,5 +98,4 @@ function onClick()
 end
 
 entityStates = noctalia.state.get("entities") or {}
-status = noctalia.state.get("connection_status") or "unconfigured"
 render()
