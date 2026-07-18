@@ -8,6 +8,7 @@
   "notification": {
     "checking_update": "Checking NixOS update...",
     "clean_command_is_empty": "Clean command is empty!",
+    "optimize_command_is_empty": "Optimize command is empty!",
     "update_check_completed": "NixOS update check completed!",
     "update_command_is_empty": "Update command is empty!",
     "update_is_available": "NixOS update is available!"
@@ -15,6 +16,7 @@
   "panel": {
     "cancel": "Cancel",
     "check": "Check",
+    "optimize": "Optimize",
     "clean": "Clean",
     "closure_size": "Closure size",
     "current": "Current",
@@ -30,6 +32,14 @@
       "description": "Which nixpkgs branch to use",
       "label": "Branch"
     },
+    "update_command": {
+      "description": "Command to run when clicking Update button",
+      "label": "Update command"
+    },
+    "optimize_command": {
+      "label": "Optimize command",
+      "description": "Command to run when clicking Optimize button"
+    },
     "clean_command": {
       "description": "Command to run when clicking Clean button",
       "label": "Clean command"
@@ -38,13 +48,17 @@
       "description": "Add 'Press enter to exit' on the terminal window",
       "label": "Close on press Enter"
     },
-    "hide_clean_button": {
-      "description": "Whether to hide the clean button on the panel",
-      "label": "Hide clean button"
-    },
     "hide_update_button": {
       "description": "Whether to hide the update button on the panel",
       "label": "Hide update button"
+    },
+    "hide_optimize_button": {
+      "label": "Hide optimize button",
+      "description": "Whether to hide the optimize button on the panel"
+    },
+    "hide_clean_button": {
+      "description": "Whether to hide the clean button on the panel",
+      "label": "Hide clean button"
     },
     "option": {
       "branch": {
@@ -90,10 +104,6 @@
     "update_check_interval": {
       "description": "How often to check for updates (in minutes)",
       "label": "Update check interval"
-    },
-    "update_command": {
-      "description": "Command to run when clicking Update button",
-      "label": "Update command"
     },
     "widget": {
       "checking_color": {
