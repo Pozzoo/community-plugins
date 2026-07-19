@@ -273,3 +273,14 @@ icon = "eye"
 description = "Periodically reminds you to take breaks using the 20-20-20 rule."
 plugin_api = 3
 tags = ["service", "bar", "utility", "productivity"]
+
+[[plugin]]
+id = "hy4ri/ds4-color"
+name = "DS4 Color"
+version = "0.1.0"
+author = "hy4ri"
+license = "MIT"
+icon = "device-gamepad-2"
+description = "Set the DualShock 4 lightbar colour from a bar button and panel."
+plugin_api = 3
+tags = ["gaming", "hardware", "utility", "bar", "panel"]
