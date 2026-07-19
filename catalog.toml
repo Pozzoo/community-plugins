@@ -295,3 +295,14 @@ icon = "clock"
 description = "A custom clock drawn with ImageMagick."
 plugin_api = 3
 tags = ["clock"]
+
+[[plugin]]
+id = "lowcache/claude-companion"
+name = "Claude Companion"
+version = "1.0.0"
+author = "lowcache"
+license = "MIT"
+icon = "robot"
+description = "Claude Code companion: /claude launch + a telemetry-driven attention pulse."
+plugin_api = 3
+tags = ["ai", "productivity", "bar", "desktop", "panel", "launcher", "niri", "hyprland", "sway"]
