@@ -228,15 +228,17 @@ local function fetchInitialStates()
     connectionRequestInFlight = false
     connectingSince = nil
 
-    if not res.body or res.body == "" then
-      noctalia.log("Empty response body from /api/states")
-      status = "disconnected"
+    -- status 0 = no HTTP response at all (couldn't connect / DNS / timeout): the
+    -- server is unreachable, which is a distinct case from an auth or HTTP error.
+    if res.status == 0 then
+      status = "unreachable"
+      noctalia.log("Cannot reach Home Assistant (connection failed)")
       noctalia.state.set("connection_status", status)
       syncUpdateInterval()
       return
     end
 
-    if not res.ok or res.status == 401 or res.body:match("^401") or res.body:match("Unauthorized") then
+    if res.status == 401 or (res.body and (res.body:match("^401") or res.body:match("Unauthorized"))) then
       status = "auth_failed"
       noctalia.log("Authentication failed - check your token")
       noctalia.notifyError(noctalia.tr("notifications.auth_failed"))
@@ -245,7 +247,15 @@ local function fetchInitialStates()
       return
     end
 
-    if not res.ok or (res.status and res.status >= 400) then
+    if not res.body or res.body == "" then
+      noctalia.log("Empty response body from /api/states")
+      status = "disconnected"
+      noctalia.state.set("connection_status", status)
+      syncUpdateInterval()
+      return
+    end
+
+    if not res.ok or res.status >= 400 then
       status = "disconnected"
       noctalia.log("HTTP request failed: status " .. (res.status or "unknown"))
       noctalia.state.set("connection_status", status)
@@ -299,7 +309,7 @@ local function fetchInitialStates()
   if not launched then
     connectionRequestInFlight = false
     connectingSince = nil
-    status = "disconnected"
+    status = "unreachable"
     noctalia.state.set("connection_status", status)
     syncUpdateInterval()
   end
@@ -412,7 +422,7 @@ function update()
     syncUpdateInterval()
   end
 
-  if status == "disconnected" then
+  if status == "disconnected" or status == "unreachable" then
     retryCount = retryCount + 1
     if retryCount >= MAX_RECONNECT_RETRIES and not backoff then
       -- After the initial burst of fast retries, fall back to a
