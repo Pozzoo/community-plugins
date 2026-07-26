@@ -238,7 +238,7 @@ local function fetchInitialStates()
       return
     end
 
-    if res.status == 401 or (res.body and (res.body:match("^401") or res.body:match("Unauthorized"))) then
+    if res.status == 401 then
       status = "auth_failed"
       noctalia.log("Authentication failed - check your token")
       noctalia.notifyError(noctalia.tr("notifications.auth_failed"))
