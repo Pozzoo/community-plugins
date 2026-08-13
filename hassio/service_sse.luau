@@ -229,6 +229,11 @@ local currentEvent = {
     event = "",
 }
 
+-- A stream that never sends its blank line grows this buffer without bound, and the decode
+-- at the end of it is one C call no budget can interrupt.
+local MAX_EVENT_DATA = 262144
+local oversizedEventLogged = false
+
 local function eventTypeOf(parsed)
   if currentEvent.event and currentEvent.event ~= "" then
     return currentEvent.event
@@ -268,6 +273,15 @@ local function processSSELine(line)
       end
     end
     if currentEvent.data and currentEvent.data ~= "" then
+      if #currentEvent.data + #data + 1 > MAX_EVENT_DATA then
+        -- Dropped, not truncated: half an event decodes to nothing either way.
+        if not oversizedEventLogged then
+          oversizedEventLogged = true
+          noctalia.log("Discarding an SSE event over " .. MAX_EVENT_DATA .. " bytes; the stream is not delimiting events")
+        end
+        currentEvent = {}
+        return
+      end
       currentEvent.data = currentEvent.data .. "\n" .. data
     else
       currentEvent.data = data
@@ -411,6 +425,7 @@ function startSSEStream()
 
   noctalia.log("Starting SSE stream")
   currentEvent = { data = "", event = "" }
+  oversizedEventLogged = false
 
   local handle
   handle = noctalia.httpStream({
