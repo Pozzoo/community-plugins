@@ -9,6 +9,7 @@
 --   { op = "select", group = "<group>", proxy = "<proxy>" }
 --   { op = "mode", mode = "rule" | "global" | "direct" }
 --   { op = "delay_test", group = "<group>" }
+--   { op = "reorder_group", group = "<group>", index = <insertion index> }
 --   { op = "restart" }                           POST /restart (core re-execs)
 --   { op = "close_connections" }
 --   { op = "refresh" }
@@ -25,6 +26,27 @@ local MODES = { rule = true, global = true, direct = true }
 local DEFAULT_TEST_URL = "https://www.gstatic.com/generate_204"
 local GROUPS_REFRESH_EVERY = 5 -- every Nth tick, re-fetch /proxies
 local STREAM_RETRY_EVERY = 5 -- ticks between traffic-stream retry attempts
+
+local function log(msg)
+  noctalia.log("[mihomo-control/service] " .. tostring(msg))
+end
+
+local function safe_call(label, fn)
+  local ok, err = pcall(fn)
+  if not ok then
+    log(label .. " failed: " .. tostring(err))
+  end
+end
+
+local group_logic
+
+local function require_group_logic()
+  if group_logic ~= nil then
+    return group_logic
+  end
+  group_logic = require("./group_logic.luau")
+  return group_logic
+end
 
 -- ── Settings ────────────────────────────────────────────────────────────────
 
@@ -54,7 +76,15 @@ local function reload_settings()
   settings.use_https = noctalia.getConfig("use_https") == true
   settings.insecure = noctalia.getConfig("allow_insecure_tls") == true
   settings.test_url = type(test_url) == "string" and noctalia.string.trim(test_url) or ""
-  settings.interval = math.max(1, math.min(60, interval))
+  settings.interval = require_group_logic().clamp_interval(interval)
+end
+
+-- Keep the service watchdog fed even before the first update() tick.
+local interval_applied_at_load = false
+
+local function apply_interval()
+  noctalia.setUpdateInterval(settings.interval * 1000)
+  interval_applied_at_load = true
 end
 
 local function base_url()
@@ -94,6 +124,61 @@ local state = {
   groups = {},
   delay = {},
 }
+
+-- Mihomo's /proxies response is a map and therefore has no stable user-facing
+-- group order. Keep the panel's preferred order in the plugin data directory;
+-- newly discovered groups that are not in this list are appended alphabetically.
+local group_order = {}
+local data_path = nil
+
+local function resolve_data_path()
+  if data_path ~= nil then
+    return data_path
+  end
+  local dir = noctalia.pluginDataDir()
+  if dir == nil then
+    return nil
+  end
+  data_path = dir .. "/state.json"
+  return data_path
+end
+
+local function load_group_order()
+  local path = resolve_data_path()
+  if path == nil then
+    return
+  end
+  local raw = noctalia.readFile(path)
+  if raw == nil then
+    return
+  end
+  local ok, decoded = pcall(noctalia.json.decode, raw)
+  if not ok or type(decoded) ~= "table" or type(decoded.groupOrder) ~= "table" then
+    return
+  end
+
+  group_order = require_group_logic().normalize_group_order(decoded.groupOrder)
+end
+
+local function save_group_order()
+  local path = resolve_data_path()
+  if path == nil then
+    return
+  end
+  local ok, encoded = pcall(noctalia.json.encode, { groupOrder = group_order })
+  if not ok or type(encoded) ~= "string" then
+    noctalia.log("[mihomo-control] failed to encode proxy-group order")
+    return
+  end
+  local written, err = noctalia.writeFile(path, encoded)
+  if not written then
+    noctalia.log("[mihomo-control] failed to save proxy-group order: " .. tostring(err or "unknown error"))
+  end
+end
+
+local function apply_group_order(groups)
+  require_group_logic().apply_group_order(groups, group_order)
+end
 
 local function publish(key)
   noctalia.state.set("mihomo." .. key, state[key])
@@ -269,9 +354,7 @@ local function poll_proxies()
         })
       end
     end
-    table.sort(groups, function(a, b)
-      return a.name < b.name
-    end)
+    apply_group_order(groups)
     state.groups = groups
     for _, group in groups do
       merge_delays(group.name)
@@ -296,17 +379,29 @@ local function start_traffic_stream()
       allow_insecure_tls = settings.insecure,
     },
     function(line)
-      if line == "" then
-        return
-      end
-      local data = decode(line)
-      if data then
-        state.traffic.up = tonumber(data.up) or state.traffic.up
-        state.traffic.down = tonumber(data.down) or state.traffic.down
-        state.traffic.upTotal = tonumber(data.upTotal) or state.traffic.upTotal
-        state.traffic.downTotal = tonumber(data.downTotal) or state.traffic.downTotal
+      safe_call("traffic stream", function()
+        if line == "" then
+          return
+        end
+        local data = decode(line)
+        if not data then
+          return
+        end
+        local next_values = {
+          up = tonumber(data.up) or state.traffic.up,
+          down = tonumber(data.down) or state.traffic.down,
+          upTotal = tonumber(data.upTotal) or state.traffic.upTotal,
+          downTotal = tonumber(data.downTotal) or state.traffic.downTotal,
+        }
+        if not require_group_logic().traffic_changed(state.traffic, next_values) then
+          return
+        end
+        state.traffic.up = next_values.up
+        state.traffic.down = next_values.down
+        state.traffic.upTotal = next_values.upTotal
+        state.traffic.downTotal = next_values.downTotal
         publish("traffic")
-      end
+      end)
     end,
     function(result)
       traffic_stream = nil
@@ -439,6 +534,20 @@ local function test_all_groups()
   next_test()
 end
 
+-- Move one group to an insertion gap in the currently published order. Gaps
+-- are numbered 1..#groups+1; removing an item shifts later gaps down by one.
+local function reorder_group(group_name, insertion_index)
+  local reordered, order = require_group_logic().reorder_groups(state.groups, group_name, insertion_index)
+  if reordered == nil then
+    return
+  end
+
+  state.groups = reordered
+  group_order = order
+  save_group_order()
+  publish("groups")
+end
+
 local function handle_command(cmd)
   local op = cmd.op
   if op == "refresh" then
@@ -490,6 +599,13 @@ local function handle_command(cmd)
     end
     return
   end
+  if op == "reorder_group" then
+    local group = tostring(cmd.group or "")
+    if group ~= "" then
+      reorder_group(group, cmd.index)
+    end
+    return
+  end
   if op == "delay_test_all" then
     test_all_groups()
     return
@@ -529,16 +645,77 @@ local function handle_command(cmd)
   end
 end
 
+local function run_self_test(quiet)
+  local logic = require_group_logic()
+  local checks = {}
+
+  local function check(name, ok, detail)
+    table.insert(checks, { name = name, ok = ok == true, detail = detail or "" })
+  end
+
+  local ordered = {
+    { name = "beta" },
+    { name = "alpha" },
+    { name = "zeta" },
+  }
+  logic.apply_group_order(ordered, { "beta", "alpha" })
+  check(
+    "apply_group_order",
+    ordered[1].name == "beta" and ordered[2].name == "alpha" and ordered[3].name == "zeta"
+  )
+
+  local reordered, order = logic.reorder_groups({
+    { name = "a" },
+    { name = "b" },
+    { name = "c" },
+  }, "c", 1)
+  check("reorder_groups", reordered ~= nil and order[1] == "c" and order[3] == "b")
+
+  check(
+    "traffic_changed",
+    logic.traffic_changed({ up = 1, down = 2, upTotal = 3, downTotal = 4 }, { up = 9, down = 2, upTotal = 3, downTotal = 4 })
+  )
+
+  check("interval_at_load", interval_applied_at_load)
+
+  local passed = true
+  for _, item in ipairs(checks) do
+    if not item.ok then
+      passed = false
+    end
+  end
+
+  local report = {
+    passed = passed,
+    checks = checks,
+    at = os.time(),
+  }
+  noctalia.state.set("mihomo.self_test", report)
+
+  if not quiet then
+    if passed then
+      noctalia.notify(noctalia.tr("notify.self_test_passed"), noctalia.tr("notify.self_test_passed_body"))
+    else
+      noctalia.notifyError(noctalia.tr("notify.self_test_failed"), noctalia.tr("notify.self_test_failed_body"))
+    end
+  end
+
+  log("self-test " .. (passed and "passed" or "failed") .. " (" .. tostring(#checks) .. " checks)")
+  return report
+end
+
 noctalia.state.watch("mihomo.command", function(cmd)
-  if type(cmd) ~= "table" then
-    return
-  end
-  local seq = tonumber(cmd.seq) or 0
-  if seq <= last_cmd_seq then
-    return
-  end
-  last_cmd_seq = seq
-  handle_command(cmd)
+  safe_call("command", function()
+    if type(cmd) ~= "table" then
+      return
+    end
+    local seq = tonumber(cmd.seq) or 0
+    if seq <= last_cmd_seq then
+      return
+    end
+    last_cmd_seq = seq
+    handle_command(cmd)
+  end)
 end)
 
 -- ── Entry-point callbacks ───────────────────────────────────────────────────
@@ -546,24 +723,27 @@ end)
 local tick = 0
 
 function update()
-  tick += 1
-  noctalia.setUpdateInterval(settings.interval * 1000)
+  safe_call("update", function()
+    tick += 1
+    apply_interval()
 
-  poll_version()
-  poll_configs()
-  poll_connections()
-  if tick % GROUPS_REFRESH_EVERY == 1 then
-    poll_proxies()
-  end
+    poll_version()
+    poll_configs()
+    poll_connections()
+    if tick % GROUPS_REFRESH_EVERY == 1 then
+      poll_proxies()
+    end
 
-  if traffic_stream == nil and tick - stream_attempt_tick >= STREAM_RETRY_EVERY then
-    stream_attempt_tick = tick
-    start_traffic_stream()
-  end
+    if traffic_stream == nil and tick - stream_attempt_tick >= STREAM_RETRY_EVERY then
+      stream_attempt_tick = tick
+      start_traffic_stream()
+    end
+  end)
 end
 
 function onConfigChanged()
   reload_settings()
+  apply_interval()
   state.connection.host = settings.host
   state.connection.port = settings.port
   publish("connection")
@@ -581,22 +761,28 @@ function onConfigChanged()
 end
 
 function onIpc(event, payload)
-  if event == "refresh" then
-    poll_version()
-    poll_configs()
-    poll_connections()
-    poll_proxies()
-  elseif event == "cmd" and payload then
-    local ok, cmd = pcall(noctalia.json.decode, payload)
-    if ok and type(cmd) == "table" then
-      handle_command(cmd)
+  safe_call("ipc:" .. tostring(event), function()
+    if event == "refresh" then
+      poll_version()
+      poll_configs()
+      poll_connections()
+      poll_proxies()
+    elseif event == "self-test" then
+      run_self_test(false)
+    elseif event == "cmd" and payload then
+      local ok, cmd = pcall(noctalia.json.decode, payload)
+      if ok and type(cmd) == "table" then
+        handle_command(cmd)
+      end
     end
-  end
+  end)
 end
 
 -- ── Init ────────────────────────────────────────────────────────────────────
 
 reload_settings()
+apply_interval()
+load_group_order()
 state.connection.host = settings.host
 state.connection.port = settings.port
 publish("connection")
@@ -611,3 +797,4 @@ poll_configs()
 poll_connections()
 poll_proxies()
 start_traffic_stream()
+log("loaded, interval=" .. tostring(settings.interval) .. "s")
