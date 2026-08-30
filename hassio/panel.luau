@@ -16,19 +16,12 @@ local PENDING_TIMEOUT_SECONDS = 8
 
 local view = "list" -- "list" | "browser"
 local allEntities = {}
-local browserIndex = nil -- { blob, offsets }, built alongside allEntities and only ever replaced with it
 local browserLoading = false
 local browserLoadingSince = nil
 local browserFailed = false
 
 local BROWSER_TIMEOUT_SECONDS = 20
--- Ticks a parse may go without advancing its phase, cursor or count before it is given up
--- on. Not a ceiling on the whole parse: that one killed large instances on slow hardware.
-local BROWSER_STALL_SECONDS = 20
--- Each row or card is ~6 UI nodes and a closure, and the cards repaint on every state
--- publish rather than per keystroke.
 local MAX_BROWSER_ROWS = 200
-local MAX_LIST_CARDS = 200
 local searchText = ""
 local monitoredEntities = {} -- current monitored list (owned here, saved to file)
 local panelOpenCount = 0
@@ -134,6 +127,13 @@ local function saveMonitoredEntities()
     noctalia.state.set("command", "reload_entities")
 end
 
+local function isPinned(entityId)
+    for _, eid in ipairs(monitoredEntities) do
+        if eid == entityId then return true end
+    end
+    return false
+end
+
 local function toggleBrowserPin(entityId)
     if not entityId then return end
     local newList, found = {}, false
@@ -147,413 +147,242 @@ local function toggleBrowserPin(entityId)
     render()
 end
 
--- ── Entity list sources ─────────────────────────────────────────────────────
---
--- Every source is parsed by a resumable job, never in one go: the host kills a callback
--- over its CPU budget, and repeated overruns disable the panel's tick as well.
-
--- Escaping is Home Assistant's problem here, so no byte can be mistaken for a separator.
-local ENTITY_JSON_TEMPLATE =
-    "[{% for s in states %}{% if not loop.first %},{% endif %}"
-        .. "[{{ s.entity_id | to_json }},{{ s.name | to_json }}]{% endfor %}]"
-
--- The tab and newline outside the {{ }} are the separators; the ones inside are Jinja's.
+-- /api/states is megabytes on a large instance and decoding it overruns the host's
+-- per-callback CPU budget. The tab and newline outside the {{ }} are the record
+-- separators; the ones inside replace() are escapes for Jinja to interpret.
 local ENTITY_LIST_TEMPLATE =
-    "{% for s in states %}{{ s.entity_id }}\t{{ s.name | replace('\\t',' ') | replace('\\n',' ') }}\n{% endfor %}"
+    "{% for s in (states | sort(attribute='entity_id')) %}{{ s.entity_id }}\t{{ s.name | replace('\\t',' ') | replace('\\n',' ') }}\n{% endfor %}"
 
+-- Same shape minus the friendly names, for instances that reject the template above.
 local ENTITY_ID_TEMPLATE =
-    "{% for s in states %}{{ s.entity_id }}\n{% endfor %}"
+    "{% for s in (states | sort(attribute='entity_id')) %}{{ s.entity_id }}\n{% endfor %}"
 
 local MAX_ENTITY_ID_LENGTH = 255
 local MAX_FRIENDLY_NAME_LENGTH = 255
 -- Comfortably past id + name, so a record is never cut short by it.
 local MAX_RECORD_SCAN = 1024
--- Past this an entity's attributes put the friendly name out of reach; the id stands in.
-local MAX_STATES_RECORD = 32768
 
--- Slices of the callback budget and of the smaller tick one. os.clock() is wall time,
--- which only overstates CPU time, so a deadline built from it stops early.
-local SLICE_CALLBACK = 0.012
-local SLICE_TICK = 0.006
--- Records between two clock reads, and so also the deadline overshoot.
-local DEADLINE_CHECK_EVERY = 64
-
-local STATES_ID_KEY = '"entity_id":"'
-local STATES_NAME_KEY = '"friendly_name":"'
-
-local function bodyPreview(body)
-    return (string.gsub(string.sub(body, 1, 120), "%c", "."))
-end
-
--- Index of the quote that closes a JSON string whose first content byte is `from`.
-local function findStringEnd(s, from)
-    local i = string.find(s, '"', from, true)
-    while i do
-        local j = i - 1
-        while j >= from and string.byte(s, j) == 92 do j -= 1 end
-        -- An even run of backslashes in front of it leaves the quote unescaped.
-        if (i - 1 - j) % 2 == 0 then return i end
-        i = string.find(s, '"', i + 1, true)
-    end
-    return nil
-end
-
--- The decoder only ever sees one short value, never a whole payload.
-local function jsonString(raw)
-    if raw == "" then return nil end
-    if not string.find(raw, "\\", 1, true) then return raw end
-    local decoded = noctalia.json.decode('["' .. raw .. '"]')
-    if type(decoded) == "table" and type(decoded[1]) == "string" then return decoded[1] end
-    return nil
-end
-
-local function addEntity(job, entityId, name)
-    local dot = string.find(entityId, ".", 1, true)
-    if not dot or dot == 1 or dot == #entityId then return end
-    if #entityId > MAX_ENTITY_ID_LENGTH then return end
-    -- An id is a slug, so it has no spaces. Stops an HTML error page served with status 200
-    -- from parsing as one entity instead of falling through to the next source. Plain find,
-    -- not a character class: the pattern matcher calls the interrupt per byte it examines.
-    if string.find(entityId, " ", 1, true) then return end
-    -- "entity_id" also appears inside group and helper attributes.
-    if job.seen[entityId] then return end
-
-    if name == nil or name == "" then
-        name = entityId
-    elseif #name > MAX_FRIENDLY_NAME_LENGTH then
-        name = string.sub(name, 1, MAX_FRIENDLY_NAME_LENGTH)
-    end
-
-    local domain = string.sub(entityId, 1, dot - 1)
-
-    -- One run of plain stores, no table.insert: the interrupt lands only on calls, returns
-    -- and loop edges, so list, count and seen cannot end up disagreeing.
-    local n = job.count + 1
-    job.list[n] = {
-        entity_id     = entityId,
-        friendly_name = name,
-        domain        = domain,
-    }
-    job.count = n
-    job.seen[entityId] = true
-end
-
--- One `id<TAB>name` record per line. Plain string.find only: a pattern like "([^\t\n]+)\t"
--- backtracks over every separator-free byte inside one uninterruptible C call.
-local function stepLines(job, deadline)
-    local body = job.body
-    local len = #body
-    if job.splitOnSpace == nil then
-        -- Without any newline the whole body is one record, so a space is not a separator.
-        job.splitOnSpace = string.find(body, "\n", 1, true) ~= nil
-    end
-
-    local pos = job.cursor
-    local n = 0
-    while pos <= len do
-        local eol = string.find(body, "\n", pos, true) or (len + 1)
-        local lineEnd = eol - 1
-        if string.sub(body, lineEnd, lineEnd) == "\r" then lineEnd -= 1 end
-
-        -- Bounded copy: searching the body itself re-scans to its far end per line.
-        local record = string.sub(body, pos, math.min(lineEnd, pos + MAX_RECORD_SCAN - 1))
-        local sep = string.find(record, "\t", 1, true)
-        if not sep and job.splitOnSpace then sep = string.find(record, " ", 1, true) end
-
-        if sep then
-            addEntity(job, string.sub(record, 1, sep - 1), string.sub(record, sep + 1))
-        else
-            addEntity(job, record, nil)
-        end
-
-        pos = eol + 1
-        -- Advanced only once the record is in, so a resume neither drops nor repeats it.
-        job.cursor = pos
-        n += 1
-        if n % DEADLINE_CHECK_EVERY == 0 and os.clock() >= deadline then return "more" end
-    end
-    return "done"
-end
-
--- [["light.kitchen","Kitchen"],["light.hall","Hall"]]
-local function stepPairs(job, deadline)
-    local body = job.body
-    local at = job.cursor
-    local n = 0
-    while true do
-        local open = string.find(body, '["', at, true)
-        if not open then return "done" end
-
-        local idStart = open + 2
-        local idEnd = findStringEnd(body, idStart)
-        if not idEnd then return "done" end
-
-        local name = nil
-        at = idEnd + 1
-        if string.sub(body, idEnd + 1, idEnd + 2) == ',"' then
-            local valueStart = idEnd + 3
-            local valueEnd = findStringEnd(body, valueStart)
-            if valueEnd then
-                name = jsonString(string.sub(body, valueStart, valueEnd - 1))
-                at = valueEnd + 1
-            end
-        end
-
-        addEntity(job, string.sub(body, idStart, idEnd - 1), name)
-        job.cursor = at
-        n += 1
-        if n % DEADLINE_CHECK_EVERY == 0 and os.clock() >= deadline then return "more" end
-    end
-end
-
--- Every element of the compact array opens with `[{"entity_id":"` or `,{"entity_id":"`.
--- The same key one level down is an attribute naming another entity, and taking it for a
--- record misfiles the friendly name.
-local function nextStatesKey(body, at, strict)
-    local key = string.find(body, STATES_ID_KEY, at, true)
-    if not strict then return key end
-    while key do
-        if string.byte(body, key - 1) == 123 then
-            local before = string.byte(body, key - 2)
-            if before == 91 or before == 44 then return key end
-        end
-        key = string.find(body, STATES_ID_KEY, key + 1, true)
-    end
-    return nil
-end
-
--- The raw /api/states payload, never noctalia.json.decode: it is megabytes, and the decode
--- is one C call that outruns the whole callback budget.
-local function stepStates(job, deadline)
-    local body = job.body
-    local len = #body
-    if job.strict == nil then
-        -- Anything not compact falls back to matching the key anywhere, leaning on the dedupe.
-        job.strict = string.find(body, '[{' .. STATES_ID_KEY, 1, true) ~= nil
-            or string.find(body, ',{' .. STATES_ID_KEY, 1, true) ~= nil
-    end
-
-    local at = job.cursor
-    local n = 0
-    while true do
-        local key = nextStatesKey(body, at, job.strict)
-        if not key then return "done" end
-
-        local idStart = key + #STATES_ID_KEY
-        local idEnd = string.find(body, '"', idStart, true)
-        if not idEnd then return "done" end
-
-        local nextKey = nextStatesKey(body, idEnd + 1, job.strict)
-
-        -- Forward-only: a fresh find per record rescans to the far end of the body for
-        -- every entity that has no name. false means none left.
-        local hit = job.nameHit
-        if hit == nil or (hit ~= false and hit <= idEnd) then
-            hit = string.find(body, STATES_NAME_KEY, idEnd + 1, true) or false
-            job.nameHit = hit
-        end
-
-        local name = nil
-        local limit = math.min(nextKey or (len + 1), idEnd + MAX_STATES_RECORD)
-        if hit and hit < limit then
-            local valueStart = hit + #STATES_NAME_KEY
-            local valueEnd = findStringEnd(body, valueStart)
-            if valueEnd then name = jsonString(string.sub(body, valueStart, valueEnd - 1)) end
-        end
-
-        addEntity(job, string.sub(body, idStart, idEnd - 1), name)
-
-        if not nextKey then return "done" end
-        at = nextKey
-        job.cursor = at
-        n += 1
-        if n % DEADLINE_CHECK_EVERY == 0 and os.clock() >= deadline then return "more" end
-    end
-end
-
--- Home Assistant hands `states` back in entity_id order, so this is normally just the
--- linear check. No Lua comparator: table.sort calls one per comparison from native code,
--- where an overrun kills the whole callback.
-local function stepOrder(job, deadline)
-    local n = 0
-    while true do
-        if job.orderStage == "check" then
-            local list = job.list
-            local total = #list
-            local i = job.cursor
-            while i <= total do
-                if list[i].entity_id < list[i - 1].entity_id then
-                    job.orderStage = "collect"
-                    job.cursor = 1
-                    job.ids = {}
-                    job.byId = {}
-                    break
-                end
-                i += 1
-                job.cursor = i
-                n += 1
-                if n % DEADLINE_CHECK_EVERY == 0 and os.clock() >= deadline then return "more" end
-            end
-            if job.orderStage == "check" then return "done" end
-
-        elseif job.orderStage == "collect" then
-            local list = job.list
-            local total = #list
-            local ids, byId = job.ids, job.byId
-            local i = job.cursor
-            while i <= total do
-                local e = list[i]
-                ids[i] = e.entity_id
-                byId[e.entity_id] = e
-                i += 1
-                job.cursor = i
-                n += 1
-                if n % DEADLINE_CHECK_EVERY == 0 and os.clock() >= deadline then return "more" end
-            end
-            table.sort(ids)
-            job.orderStage = "rebuild"
-            job.cursor = 1
-            job.list = {}
-            if os.clock() >= deadline then return "more" end
-
-        else
-            local ids, byId = job.ids, job.byId
-            local out = job.list
-            local total = #ids
-            local i = job.cursor
-            while i <= total do
-                out[i] = byId[ids[i]]
-                i += 1
-                job.cursor = i
-                n += 1
-                if n % DEADLINE_CHECK_EVERY == 0 and os.clock() >= deadline then return "more" end
-            end
-            return "done"
-        end
-    end
-end
-
--- `id\nname\nid\nname...` lowercased, plus each entity's start offset, so a search is one
--- string.find per matching row instead of one per entity. A per-entity loop spends most of
--- a keystroke's budget on the interrupt alone, whatever its body does.
-local function stepIndex(job, deadline)
-    local list = job.list
-    local total = #list
-    local parts, offsets = job.parts, job.offsets
-    local i = job.cursor
-    local pos = job.blobPos
-    local n = 0
-
-    while i <= total do
-        local e = list[i]
-        local id, name = e.entity_id, e.friendly_name
-        -- Two slots rather than a joined string: table.concat supplies the separator, so
-        -- nothing is allocated per entity.
-        local p = i + i
-        parts[p - 1] = id
-        parts[p] = name
-        offsets[i] = pos
-        -- The separator inside the record, and the one that ends it.
-        pos = pos + #id + #name + 2
-        i += 1
-        job.cursor = i
-        job.blobPos = pos
-        n += 1
-        if n % DEADLINE_CHECK_EVERY == 0 and os.clock() >= deadline then return "more" end
-    end
-
-    -- Whole-blob C calls, last so an abort above only repeats them.
-    job.index = { blob = string.lower(table.concat(parts, "\n")), offsets = offsets }
-    return "done"
-end
-
-local function finishBrowserLoad(list, index, failed)
+local function finishBrowserLoad(list, failed)
     allEntities = list
-    browserIndex = index
     browserLoading = false
     browserLoadingSince = nil
     browserFailed = failed == true
     render()
 end
 
-local browserJob = nil
+-- HA iterates `states` in entity_id order, so "check" is normally the only stage this
+-- ever runs. Sorting is resumable across ticks like the /api/states conversion below:
+-- "check" and "rebuild" are plain loops that yield every SORT_STEP_PER_TICK records, and
+-- "collect" builds a flat id array so the eventual table.sort(ids) call has no Lua
+-- comparator. table.sort itself is still one uninterruptible native call, but with a
+-- default comparator over strings it never calls back into Lua, so it stays fast even
+-- for a large id array.
+local pendingSortList = nil
+local pendingSortStage = nil -- "check" | "collect" | "rebuild"
+local pendingSortCursor = 1
+local pendingSortIds = nil
+local pendingSortById = nil
+local SORT_STEP_PER_TICK = 2000
 
-local function startBrowserJob(scan, body, label, onUnusable)
-    browserJob = {
-        scan = scan,
-        body = body,
-        label = label,
-        onUnusable = onUnusable,
-        phase = "scan",
-        orderStage = "check",
-        cursor = 1,
-        count = 0,
-        list = {},
-        seen = {},
-        parts = {},
-        offsets = {},
-        blobPos = 1,
-    }
+local function startSort(list)
+    pendingSortList = list
+    pendingSortStage = "check"
+    pendingSortCursor = 2
 end
 
-local function runBrowserJob(slice)
-    local job = browserJob
-    if job == nil then return end
-    local deadline = os.clock() + slice
+local function stepSort()
+    local list = pendingSortList
+    local total = #list
+    local n = 0
 
     while true do
-        -- Finishing is a phase of its own: clearing browserJob is a plain store but the
-        -- handover after it is a call, so an abort in between would drop a parsed list.
-        if job.phase == "done" then
-            finishBrowserLoad(job.list, job.index)
-            browserJob = nil
-            return
-        elseif job.phase == "unusable" then
-            noctalia.log(job.label .. " returned nothing usable (" .. #job.body
-                .. " bytes, starts with: " .. bodyPreview(job.body) .. ")")
-            if job.onUnusable then
-                -- Cleared first here: the fallback installs the next job, and a leftover
-                -- would have update() re-fire the request every tick.
-                browserJob = nil
-                job.onUnusable()
-            else
-                finishBrowserLoad({}, nil, true)
-                browserJob = nil
+        if pendingSortStage == "check" then
+            local i = pendingSortCursor
+            while i <= total do
+                if list[i].entity_id < list[i - 1].entity_id then
+                    pendingSortStage = "collect"
+                    pendingSortCursor = 1
+                    pendingSortIds = {}
+                    pendingSortById = {}
+                    break
+                end
+                i += 1
+                pendingSortCursor = i
+                n += 1
+                if n >= SORT_STEP_PER_TICK then return end
             end
-            return
-        end
+            if pendingSortStage == "check" then break end -- already sorted
 
-        local outcome
-        if job.phase == "scan" then
-            outcome = job.scan(job, deadline)
-        elseif job.phase == "order" then
-            outcome = stepOrder(job, deadline)
-        else
-            outcome = stepIndex(job, deadline)
-        end
-        if outcome == "more" then return end
-
-        if job.phase == "scan" then
-            if job.count == 0 then
-                job.phase = "unusable"
-            else
-                job.phase = "order"
-                job.cursor = 2
-                if os.clock() >= deadline then return end
+        elseif pendingSortStage == "collect" then
+            local ids, byId = pendingSortIds, pendingSortById
+            local i = pendingSortCursor
+            while i <= total do
+                local e = list[i]
+                ids[i] = e.entity_id
+                byId[e.entity_id] = e
+                i += 1
+                pendingSortCursor = i
+                n += 1
+                if n >= SORT_STEP_PER_TICK then return end
             end
-        elseif job.phase == "order" then
-            -- After ordering, never during the scan: the offsets describe the final order.
-            job.phase = "index"
-            job.cursor = 1
-            if os.clock() >= deadline then return end
-        else
-            job.phase = "done"
+            table.sort(ids)
+            pendingSortStage = "rebuild"
+            pendingSortCursor = 1
+            return -- give table.sort its own tick before rebuild starts
+
+        else -- "rebuild"
+            local ids, byId = pendingSortIds, pendingSortById
+            local i = pendingSortCursor
+            while i <= total do
+                list[i] = byId[ids[i]]
+                i += 1
+                pendingSortCursor = i
+                n += 1
+                if n >= SORT_STEP_PER_TICK then return end
+            end
+            break
         end
+    end
+
+    pendingSortList = nil
+    pendingSortStage = nil
+    pendingSortIds = nil
+    pendingSortById = nil
+    finishBrowserLoad(list)
+end
+
+-- Scans with plain string.find only. A Lua pattern such as "([^\t\n]+)\t" backtracks
+-- through every separator-free byte and gmatch then restarts one byte later, so a
+-- response that lost its tabs costs O(bytes^2) inside a single uninterruptible C call:
+-- seconds of CPU, which the host kills for overrunning the callback budget.
+--
+-- Even at O(n) this is a synchronous scan over the whole body, so on a large instance
+-- it is itself resumable across ticks, like the sort job above: pendingParse* carries
+-- the position between calls, and stepParse() yields every PARSE_STEP_PER_TICK records.
+local pendingParseBody = nil
+local pendingParsePos = 1
+local pendingParseList = nil
+local pendingParseSplitOnSpace = false
+local pendingParseLabel = nil
+local pendingParseOnUnusable = nil
+local PARSE_STEP_PER_TICK = 2000
+
+local function startParse(body, label, onUnusable)
+    pendingParseBody = body
+    pendingParsePos = 1
+    pendingParseList = {}
+    -- Without any newline the whole body is one record, so a space is not a separator.
+    pendingParseSplitOnSpace = string.find(body, "\n", 1, true) ~= nil
+    pendingParseLabel = label
+    pendingParseOnUnusable = onUnusable
+end
+
+local function stepParse()
+    local body = pendingParseBody
+    local len = #body
+    local list = pendingParseList
+    local splitOnSpace = pendingParseSplitOnSpace
+    local pos = pendingParsePos
+    local n = 0
+
+    while pos <= len do
+        local eol = string.find(body, "\n", pos, true) or (len + 1)
+        local lineEnd = eol - 1
+        if string.sub(body, lineEnd, lineEnd) == "\r" then lineEnd -= 1 end
+
+        -- Searching the body itself would re-scan to the far end on every separator-less
+        -- line, which is the quadratic behaviour this parser exists to avoid.
+        local record = string.sub(body, pos, math.min(lineEnd, pos + MAX_RECORD_SCAN - 1))
+        local sep = string.find(record, "\t", 1, true)
+        if not sep and splitOnSpace then sep = string.find(record, " ", 1, true) end
+
+        local entityId = sep and string.sub(record, 1, sep - 1) or record
+        local dot = string.find(entityId, ".", 1, true)
+        if dot and dot > 1 and dot < #entityId and #entityId <= MAX_ENTITY_ID_LENGTH then
+            local name = sep and string.sub(record, sep + 1) or ""
+            if #name > MAX_FRIENDLY_NAME_LENGTH then name = string.sub(name, 1, MAX_FRIENDLY_NAME_LENGTH) end
+            table.insert(list, {
+                entity_id     = entityId,
+                friendly_name = name ~= "" and name or entityId,
+                domain        = string.sub(entityId, 1, dot - 1),
+            })
+        end
+        pos = eol + 1
+        pendingParsePos = pos
+        n += 1
+        if n >= PARSE_STEP_PER_TICK then return end
+    end
+
+    local label, onUnusable = pendingParseLabel, pendingParseOnUnusable
+    pendingParseBody = nil
+    pendingParseList = nil
+    pendingParseLabel = nil
+    pendingParseOnUnusable = nil
+    pendingParsePos = 1
+
+    if #list == 0 then
+        -- The preview is what tells us how a given instance actually answers.
+        local preview = string.gsub(string.sub(body, 1, 120), "%c", ".")
+        noctalia.log(label .. " template returned nothing usable (" .. len
+            .. " bytes, starts with: " .. preview .. ")")
+        onUnusable()
+        return
+    end
+
+    startSort(list)
+    stepSort()
+end
+
+-- /api/states on a large instance decodes for longer than one callback is allowed to
+-- run, so the conversion is resumable: whatever is left over is finished by update(),
+-- which gets a fresh budget on every tick.
+local pendingStates = nil
+local pendingList = nil
+local pendingCursor = 1
+local STATES_PER_TICK = 1000
+
+local function consumePendingStates()
+    local states = pendingStates
+    if states == nil then return end
+
+    if type(states) ~= "table" then
+        pendingStates = nil
+        pendingList = nil
+        noctalia.log("Could not list entities: /api/states was not decodable")
+        finishBrowserLoad({}, true)
+        return
+    end
+
+    local list = pendingList
+    local total = #states
+    local i = pendingCursor
+    local last = math.min(i + STATES_PER_TICK - 1, total)
+    while i <= last do
+        local s = states[i]
+        local entityId = type(s) == "table" and s.entity_id or nil
+        if type(entityId) == "string" then
+            local attrs = s.attributes
+            local dot = string.find(entityId, ".", 1, true)
+            table.insert(list, {
+                entity_id     = entityId,
+                friendly_name = (type(attrs) == "table" and attrs.friendly_name) or entityId,
+                domain        = dot and string.sub(entityId, 1, dot - 1) or entityId,
+            })
+        end
+        i += 1
+        -- Kept in step with `list` so an aborted chunk resumes without duplicating.
+        pendingCursor = i
+    end
+
+    if i > total then
+        pendingStates = nil
+        pendingList = nil
+        startSort(list)
+        stepSort()
     end
 end
 
--- This and fetchAllEntitiesFromTemplate continue an in-flight load, so neither re-checks
--- browserLoading.
+-- Continues an already-started load, so it deliberately doesn't re-check browserLoading.
 local function fetchAllEntitiesFromStates()
     local cleanToken = getCleanToken()
     local url = getCleanUrl()
@@ -568,16 +397,23 @@ local function fetchAllEntitiesFromStates()
         local body = response and response.body or ""
         if httpStatus < 200 or httpStatus >= 300 or body == "" then
             noctalia.log("Could not list entities: /api/states returned " .. tostring(httpStatus))
-            finishBrowserLoad({}, nil, true)
+            finishBrowserLoad({}, true)
             return
         end
 
-        startBrowserJob(stepStates, body, "/api/states", nil)
-        runBrowserJob(SLICE_CALLBACK)
+        local states = noctalia.json.decode(body)
+        -- Nothing but plain assignments may sit between the decode and here. The decode
+        -- alone can outlast the budget, and the host only aborts at the next call or
+        -- loop instruction, so these stores still commit and update() can take over.
+        pendingStates = states
+        pendingList = {}
+        pendingCursor = 1
+        consumePendingStates()
     end)
 end
 
-local function fetchAllEntitiesFromTemplate(template, label, scan, onUnusable)
+-- Continues an already-started load, so it deliberately doesn't re-check browserLoading.
+local function fetchAllEntitiesFromTemplate(template, label, onUnusable)
     local cleanToken = getCleanToken()
     local url = getCleanUrl()
 
@@ -594,26 +430,24 @@ local function fetchAllEntitiesFromTemplate(template, label, scan, onUnusable)
         local body = response and response.body or ""
 
         if httpStatus < 200 or httpStatus >= 300 or body == "" then
-            -- Home Assistant puts the template error in the body.
-            noctalia.log(label .. " template unavailable (status " .. tostring(httpStatus)
-                .. ", body: " .. bodyPreview(body) .. ")")
+            noctalia.log(label .. " template unavailable (status " .. tostring(httpStatus) .. ")")
             onUnusable()
             return
         end
 
-        startBrowserJob(scan, body, label .. " template", onUnusable)
-        runBrowserJob(SLICE_CALLBACK)
+        startParse(body, label, onUnusable)
+        stepParse()
     end)
 end
 
 local function fetchAllEntities()
     if browserLoading then return end
-    browserJob = nil
+    pendingStates = nil
+    pendingList = nil
     local cleanToken = getCleanToken()
     local url = getCleanUrl()
     if not url or url == "" or cleanToken == "" then
         allEntities = {}
-        browserIndex = nil
         browserLoading = false
         browserLoadingSince = nil
         render()
@@ -625,12 +459,11 @@ local function fetchAllEntities()
     browserFailed = false
     render()
 
-    -- Least fragile first: the tab template covers instances without to_json, the id-only
-    -- one those that reject `name`, and /api/states is last because it is the largest.
-    fetchAllEntitiesFromTemplate(ENTITY_JSON_TEMPLATE, "Entity JSON", stepPairs, function()
-        fetchAllEntitiesFromTemplate(ENTITY_LIST_TEMPLATE, "Entity list", stepLines, function()
-            fetchAllEntitiesFromTemplate(ENTITY_ID_TEMPLATE, "Entity id", stepLines, fetchAllEntitiesFromStates)
-        end)
+    -- Cheapest source first. The id-only template needs no filters and no `name`
+    -- attribute, so it still answers on instances where the full one doesn't, and
+    -- /api/states is only reached when neither template works.
+    fetchAllEntitiesFromTemplate(ENTITY_LIST_TEMPLATE, "Entity list", function()
+        fetchAllEntitiesFromTemplate(ENTITY_ID_TEMPLATE, "Entity id", fetchAllEntitiesFromStates)
     end)
 end
 
@@ -770,7 +603,6 @@ end
 function onBackToList()
     view = "list"
     allEntities = {}
-    browserIndex = nil
     searchText = ""
     browserFailed = false
     render()
@@ -948,72 +780,39 @@ local function buildListBody(ids)
             color = "on_surface_variant",
         })
     end
-    local shown = math.min(#ids, MAX_LIST_CARDS)
     local cards = {}
-    for i = 1, shown do
-        table.insert(cards, buildEntityCard(entityStates[ids[i]]))
-    end
-    if #ids > shown then
-        table.insert(cards, ui.label({
-            text = tr("list_truncated", { count = shown, total = #ids }),
-            color = "on_surface_variant",
-            fontSize = 12,
-        }))
+    for _, eid in ipairs(ids) do
+        table.insert(cards, buildEntityCard(entityStates[eid]))
     end
     return ui.scroll({ flexGrow = 1, gap = 8 }, cards)
 end
 
 local function buildBrowserBody()
     if browserLoading then
-        if browserJob ~= nil and browserJob.count > 0 then
-            return ui.label({
-                text = tr("loading_entities_count", { count = browserJob.count }),
-                color = "on_surface_variant",
-            })
-        end
         return ui.label({ text = tr("loading_entities"), color = "on_surface_variant" })
     end
     if browserFailed then
         return ui.label({ text = tr("load_entities_failed"), color = "error" })
     end
-    -- Index and list are handed over together.
-    if #allEntities == 0 or browserIndex == nil then
+    if #allEntities == 0 then
         return ui.label({ text = tr("no_entities_found"), color = "on_surface_variant" })
     end
 
     local q = searchText:lower()
     local filtered = {}
+    -- A row is six UI nodes and a closure, so rendering every match on a large instance
+    -- overruns the callback budget on each keystroke. Nobody scrolls past a few hundred.
     local truncated = false
-    local total = #allEntities
-
-    if q == "" then
-        for i = 1, math.min(total, MAX_BROWSER_ROWS) do
-            filtered[i] = allEntities[i]
-        end
-        truncated = total > MAX_BROWSER_ROWS
-    else
-        local blob, offsets = browserIndex.blob, browserIndex.offsets
-        local blobEnd = #blob + 1
-        local pos, lo = 1, 1
-        while true do
-            local hit = string.find(blob, q, pos, true)
-            if not hit then break end
+    for _, e in ipairs(allEntities) do
+        if q == ""
+            or e.entity_id:lower():find(q, 1, true)
+            or e.friendly_name:lower():find(q, 1, true)
+        then
             if #filtered >= MAX_BROWSER_ROWS then
                 truncated = true
                 break
             end
-
-            -- Which entity owns that byte. Hits move forwards, so the last match is a floor.
-            local hi = total
-            while lo < hi do
-                local mid = (lo + hi + 1) // 2
-                if offsets[mid] <= hit then lo = mid else hi = mid - 1 end
-            end
-            filtered[#filtered + 1] = allEntities[lo]
-
-            -- Past the record, not past the hit: one row per entity, and a linear walk.
-            lo += 1
-            pos = lo <= total and offsets[lo] or blobEnd
+            table.insert(filtered, e)
         end
     end
 
@@ -1021,15 +820,10 @@ local function buildBrowserBody()
         return ui.label({ text = tr("no_entities_match"), color = "on_surface_variant" })
     end
 
-    local pinnedSet = {}
-    for _, eid in ipairs(monitoredEntities) do
-        pinnedSet[eid] = true
-    end
-
     local rows = {}
     for _, e in ipairs(filtered) do
         local entityId = e.entity_id
-        local pinned = pinnedSet[entityId] == true
+        local pinned = isPinned(entityId)
         table.insert(rows, ui.row({ align = "center", gap = 8 }, {
             ui.column({ flexGrow = 1, gap = 2 }, {
                 ui.label({ text = e.friendly_name, fontWeight = "medium" }),
@@ -1095,24 +889,18 @@ end
 function update()
     local now = os.clock()
 
-    -- A load still parsing outranks the network timeout. What it gives up on is a job that
-    -- stops advancing, not one that is merely slow: a tick only spends a few ms, so a large
-    -- instance legitimately takes a minute or more of them, the more so on slow hardware.
-    if browserJob ~= nil then
-        local job = browserJob
-        local mark = job.phase .. tostring(job.cursor) .. "/" .. tostring(job.count)
-        if mark ~= job.mark then
-            job.mark = mark
-            job.markAt = now
-        elseif (now - job.markAt) > BROWSER_STALL_SECONDS then
-            noctalia.log("Entity parse stalled in phase " .. job.phase .. "; giving up")
-            browserJob = nil
-            finishBrowserLoad({}, nil, true)
-            return
-        end
-        runBrowserJob(SLICE_TICK)
-        -- finishBrowserLoad already rendered if the job landed on this tick.
-        if browserJob ~= nil then render() end
+    -- A load that is still parsing, converting, or sorting is making progress, so it
+    -- outranks the timeout.
+    if pendingParseBody ~= nil then
+        stepParse()
+        return
+    end
+    if pendingSortStage ~= nil then
+        stepSort()
+        return
+    end
+    if pendingStates ~= nil then
+        consumePendingStates()
         return
     end
 
@@ -1134,15 +922,13 @@ function onCloseClicked()
     panel.close()
 end
 
--- The browser view reads neither entityStates nor status, and onBackToList renders on the
--- way out, so rendering here would rebuild the filtered list per publish for nothing.
 noctalia.state.watch("entities", function(value)
     entityStates = value or {}
     reconcilePending(os.clock())
-    if view ~= "browser" then render() end
+    render()
 end)
 
 noctalia.state.watch("connection_status", function(value)
     status = value or "unconfigured"
-    if view ~= "browser" then render() end
+    render()
 end)
