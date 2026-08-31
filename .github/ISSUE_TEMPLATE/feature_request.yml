@@ -28,9 +28,11 @@ body:
         - --- SELECT ---
         - 9router-control
         - ai-usagebar
+        - airpods
         - anilist
         - arch-updater
         - asus-fan
+        - asus-fans-controller-ec
         - audio-switcher
         - battery-graph
         - battery-power-management
@@ -40,12 +42,15 @@ body:
         - better-clock
         - bookmarks
         - calculator
+        - case-convert
         - cat
         - cider
         - claude-companion
+        - cmd-runner
         - codexbar-meter
         - color_picker
         - config-swap
+        - crashes
         - custom-shortcut
         - daily-wallpaper
         - deepseek_usage
@@ -59,6 +64,7 @@ body:
         - game-launcher
         - gamer-mode
         - git_companion
+        - github-activity
         - github-prs
         - gocryptfs
         - godot-provider
@@ -68,6 +74,7 @@ body:
         - hypr-layout-switcher
         - hypr-screen-mirror
         - hypr-submap
+        - hyprland-visual-editor
         - ideapad-conservation-mode
         - iio_lock
         - imagemagick-clock
@@ -76,7 +83,11 @@ body:
         - k8s-status
         - keybind-cheatsheet
         - keymap
+        - keyviz
         - kineticwe-layouts
+        - launcher-pass
+        - layout-fix
+        - librelinkup
         - lid-guard
         - link-ip-monitor
         - llamanager
@@ -98,6 +109,8 @@ body:
         - obs-integration
         - obsidian
         - ocr
+        - omniroute-quota
+        - omp-launcher
         - opencode-companion
         - opencodex-bar
         - opnsense
@@ -119,11 +132,14 @@ body:
         - shell-command
         - shelly
         - special-workspaces
+        - spotify
         - spotify-lyrics
+        - spotify-media
         - ssh-launcher
         - syncthing
         - system-monitor
         - system-updater
+        - systempulse
         - tailnet
         - tailscale
         - thinkpad-fan
@@ -135,11 +151,17 @@ body:
         - udiskie
         - um5606_fan_state
         - upbeat
+        - vidi
         - voxtype
         - w-engine
         - wallpaper-switcher
+        - warp
         - web-launcher
+        - web-search
+        - webapp-maker
+        - wireview-pro-ii
         - wl-screen-mirror
+        - youtube-search
         - zed-provider
 
     validations:

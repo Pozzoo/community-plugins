@@ -151,15 +151,21 @@ tags = ["nixos", "utility"]
 [[plugin]]
 id = "nightwatch75/todo"
 name = "To Do"
-version = "0.0.14"
-updated_at = 1785287669
+version = "1.1.1"
+updated_at = 1787773671
 added_at = 1784158920
 author = "nightwatch75"
 license = "MIT"
 icon = "checklist"
 description = "A prioritised task list with a bar widget and editable panel."
-plugin_api = 15
+plugin_api = 28
 tags = ["bar", "panel", "productivity"]
+
+[[plugin.release]]
+plugin_api = 15
+version = "0.0.14"
+updated_at = 1785287669
+rev = "e07a4299c2aff881060aebd8e012c27bbbe4a173"
 
 [[plugin.release]]
 plugin_api = 9
@@ -323,8 +329,8 @@ tags = ["launcher", "development", "productivity"]
 [[plugin]]
 id = "pozzoo/hassio"
 name = "Home Assistant"
-version = "2.0.6"
-updated_at = 1786156516
+version = "2.0.7"
+updated_at = 1788198102
 added_at = 1784351187
 author = "Pozzoo"
 license = "MIT"
@@ -420,8 +426,8 @@ tags = ["clock"]
 [[plugin]]
 id = "lowcache/claude-companion"
 name = "Claude Companion"
-version = "1.3.0"
-updated_at = 1785461692
+version = "1.5.0"
+updated_at = 1787833501
 added_at = 1784465190
 author = "lowcache"
 license = "MIT"
@@ -484,8 +490,8 @@ rev = "5c59d225b811675d858b7f8115c506962438ba2e"
 [[plugin]]
 id = "blackbartblues/keymap"
 name = "Keymap"
-version = "1.4.0"
-updated_at = 1786200344
+version = "1.5.0"
+updated_at = 1787627868
 added_at = 1784597775
 author = "blackbartblues"
 license = "MIT"
@@ -529,8 +535,8 @@ rev = "ff289e523fb3dca794979dd3476d336642296463"
 [[plugin]]
 id = "kenn/keybind-cheatsheet"
 name = "Keybind Cheatsheet"
-version = "0.2.4"
-updated_at = 1787490050
+version = "0.2.5"
+updated_at = 1788136844
 added_at = 1784677847
 author = "kenn"
 license = "MIT"
@@ -605,15 +611,15 @@ rev = "0162521282828e0f6313b76bbf45ac919505f251"
 [[plugin]]
 id = "blackbartblues/audio-switcher"
 name = "Audio Switcher"
-version = "0.5.0"
-updated_at = 1786156539
+version = "0.6.0"
+updated_at = 1788198742
 added_at = 1784847459
 author = "blackbartblues"
 license = "MIT"
 icon = "switch-horizontal"
 description = "Switch audio inputs and outputs, hand off Bluetooth devices, and control them from compositor keybinds."
 plugin_api = 15
-tags = ["audio", "bar", "hardware", "panel", "service", "system", "utility"]
+tags = ["audio", "bar", "hardware", "launcher", "panel", "service", "system", "utility"]
 
 [[plugin.release]]
 plugin_api = 9
@@ -774,8 +780,8 @@ tags = ["network", "bar", "panel", "service", "shortcut", "utility", "system", "
 [[plugin]]
 id = "yuuto/arch-updater"
 name = "Arch Updater"
-version = "2.0.1"
-updated_at = 1787608732
+version = "2.0.2"
+updated_at = 1788120265
 added_at = 1785208995
 author = "yuuto"
 license = "MIT"
@@ -1047,8 +1053,8 @@ tags = ["panel", "fun", "network", "privacy", "productivity", "utility"]
 [[plugin]]
 id = "alexander/screen-toolkit"
 name = "Screen Toolkit"
-version = "1.3.1"
-updated_at = 1787609653
+version = "1.4.0"
+updated_at = 1787879409
 added_at = 1785759728
 author = "alexander"
 license = "MIT"
@@ -1092,8 +1098,8 @@ tags = ["bar", "panel", "mangowc", "utility"]
 [[plugin]]
 id = "maddingo/hypr-layout-switcher"
 name = "Hyprland Layout Switcher"
-version = "0.1.0"
-updated_at = 1785812073
+version = "0.1.1"
+updated_at = 1787781204
 added_at = 1785812073
 author = "maddingo"
 license = "MIT"
@@ -1144,21 +1150,21 @@ tags = ["bar", "hardware", "panel", "service", "system", "utility"]
 [[plugin]]
 id = "goatnath/spotify-lyrics"
 name = "Spotify Lyrics"
-version = "1.2.0"
-updated_at = 1786025122
+version = "1.2.1"
+updated_at = 1788120249
 added_at = 1786025122
 author = "goatnath"
 license = "MIT"
 icon = "music"
 description = "Time-synced lyrics panel linked to the media widget."
 plugin_api = 3
-tags = ["music"]
+tags = ["music", "bar", "panel", "desktop", "service"]
 
 [[plugin]]
 id = "tadomika_ari/config-swap"
 name = "Config Swap"
-version = "1.0.0"
-updated_at = 1786027394
+version = "1.1.0"
+updated_at = 1787663144
 added_at = 1786027394
 author = "TadomiKa-Ari"
 license = "MIT"
@@ -1383,8 +1389,8 @@ tags = ["bar", "hardware"]
 [[plugin]]
 id = "mdj2812/mihomo-control"
 name = "Mihomo Control"
-version = "0.1.3"
-updated_at = 1787487818
+version = "0.1.4"
+updated_at = 1788111461
 added_at = 1786541657
 author = "mdj2812"
 license = "MIT"
@@ -1448,28 +1454,34 @@ tags = ["bar", "shortcut", "wallpaper"]
 [[plugin]]
 id = "raycursive/niri-displays"
 name = "Niri Displays"
-version = "0.3.0"
-updated_at = 1786903345
+version = "0.4.0"
+updated_at = 1788119053
 added_at = 1786903345
 author = "raycursive"
 license = "MIT"
 icon = "device-desktop"
-description = "Inspect connected Niri outputs and temporarily adjust resolution, refresh rate, and scale."
+description = "Inspect connected Niri outputs and temporarily adjust resolution, refresh rate, scale, rotation, and position."
 plugin_api = 9
 tags = ["bar", "niri", "panel", "service", "system", "utility"]
 
 [[plugin]]
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "1.1.0"
-updated_at = 1787016147
+version = "2.1.0"
+updated_at = 1788198733
 added_at = 1786903781
 author = "felipeartur"
 license = "MIT"
 icon = "brain"
 description = "AI plan usage in the bar, powered by the ai-usagebar CLI."
-plugin_api = 9
+plugin_api = 22
 tags = ["bar", "panel", "ai", "indicator", "utility"]
+
+[[plugin.release]]
+plugin_api = 9
+version = "1.1.0"
+updated_at = 1787016147
+rev = "bc77e4ef1dc366d379a689bb57e3d860c9e92b8f"
 
 [[plugin]]
 id = "rylos/syncthing"
@@ -1500,8 +1512,8 @@ tags = ["bar", "panel", "launcher", "service", "network", "privacy", "utility"]
 [[plugin]]
 id = "tordex/system-updater"
 name = "System Updates Manager"
-version = "1.0.0"
-updated_at = 1786923801
+version = "1.2.1"
+updated_at = 1788198248
 added_at = 1786923801
 author = "tordex"
 license = "MIT"
@@ -1513,8 +1525,8 @@ tags = ["bar", "panel", "service", "system"]
 [[plugin]]
 id = "tphilippot/git_companion"
 name = "Git Companion"
-version = "1.0.0"
-updated_at = 1786925440
+version = "1.1.0"
+updated_at = 1788120279
 added_at = 1786925440
 author = "thomas-philippot"
 license = "MIT"
@@ -1636,21 +1648,27 @@ tags = ["hardware", "bar", "system", "indicator"]
 [[plugin]]
 id = "tordex/nvtop"
 name = "NVTOP"
-version = "1.0.0"
-updated_at = 1787608918
+version = "2.0.0"
+updated_at = 1788119564
 added_at = 1787608918
 author = "tordex"
 license = "MIT"
 icon = "cpu"
 description = "Monitor real-time information about your GPU status and running processes with nvtop."
-plugin_api = 20
+plugin_api = 24
 tags = ["panel", "system"]
+
+[[plugin.release]]
+plugin_api = 20
+version = "1.0.0"
+updated_at = 1787608918
+rev = "f01631bd804b9b80fd00409ed3d5c7eb08bbde6f"
 
 [[plugin]]
 id = "wy3z/opencodex-bar"
 name = "OpenCodexBar"
-version = "1.0.0"
-updated_at = 1787609125
+version = "1.0.1"
+updated_at = 1788111346
 added_at = 1787609125
 author = "wy3z"
 license = "MIT"
@@ -1676,21 +1694,27 @@ tags = ["shortcut", "utility"]
 [[plugin]]
 id = "tmelik/system-monitor"
 name = "System Monitor"
-version = "1.2.0"
-updated_at = 1787614505
+version = "1.5.1"
+updated_at = 1787746877
 added_at = 1787614505
 author = "TMelik"
 license = "GPL-3.0-only"
 icon = "cpu"
-description = "A compact bar widget combining CPU, temperature, memory, disk, and network activity."
-plugin_api = 16
+description = "A compact bar widget combining CPU, optional GPU, memory, disk, and network activity."
+plugin_api = 26
 tags = ["bar", "indicator", "system"]
+
+[[plugin.release]]
+plugin_api = 16
+version = "1.2.0"
+updated_at = 1787614505
+rev = "7dd1b1c49b4d6c8fe7732934442e21bb63bf3b86"
 
 [[plugin]]
 id = "fel/ocr"
 name = "OCR"
-version = "1.0.3"
-updated_at = 1787615958
+version = "1.0.4"
+updated_at = 1787696511
 added_at = 1787615958
 author = "Fel"
 license = "MIT"
@@ -1698,3 +1722,289 @@ icon = "scan"
 description = "Select a screen region and copy its text via tesseract OCR."
 plugin_api = 3
 tags = ["utility", "productivity"]
+
+[[plugin]]
+id = "gustav0ar/wireview-pro-ii"
+name = "WireView Pro II"
+version = "0.3.0"
+updated_at = 1787627526
+added_at = 1787627526
+author = "Gustavo"
+license = "MIT"
+icon = "bolt"
+description = "Live WireView Pro II telemetry and controls. Requires wireviewd: https://github.com/Gustav0ar/wireview-pro-ii"
+plugin_api = 9
+tags = ["bar", "panel", "service", "system", "hardware", "utility"]
+
+[[plugin]]
+id = "alexmnrs/github-activity"
+name = "GitHub Activity"
+version = "1.4.0"
+updated_at = 1787773337
+added_at = 1787662636
+author = "AlexMnrs"
+license = "MIT"
+icon = "brand-github"
+description = "A native GitHub contribution calendar for your Noctalia bar."
+plugin_api = 24
+tags = ["bar", "panel", "service", "development", "productivity", "utility", "network", "hyprland", "arch"]
+
+[[plugin]]
+id = "fel/vidi"
+name = "Vidi"
+version = "0.3.0"
+updated_at = 1787690492
+added_at = 1787690492
+author = "fel"
+license = "MIT"
+icon = "brand-youtube"
+description = "Latest videos from your Vidi subscription feed."
+plugin_api = 24
+tags = ["bar", "media", "video"]
+
+[[plugin]]
+id = "emiliovenegas/omp-launcher"
+name = "Oh My Pi Launcher"
+version = "1.1.0"
+updated_at = 1787691029
+added_at = 1787691029
+author = "emiliovenegas"
+license = "MIT"
+icon = "math"
+description = "Native Oh My Pi (omp) launcher with active session indicator, popup panel, and project discovery."
+plugin_api = 3
+tags = ["bar", "launcher", "panel", "ai", "productivity", "development"]
+
+[[plugin]]
+id = "azokyen/spotify-media"
+name = "Spotify Media"
+version = "0.1.1"
+updated_at = 1787773258
+added_at = 1787691018
+author = "azokyen"
+license = "MIT"
+icon = "brand-spotify"
+description = "Compact Spotify now-playing widget with playback controls."
+plugin_api = 24
+tags = ["bar", "media", "music", "hyprland"]
+
+[[plugin]]
+id = "harveywuk/airpods"
+name = "AirPods"
+version = "1.0.0"
+updated_at = 1787781769
+added_at = 1787781769
+author = "harveywuk"
+license = "MIT"
+icon = "device-airpods"
+description = "AirPods battery, listening mode, adaptive noise, Conversation Awareness, One-Bud ANC and ear detection in the bar."
+plugin_api = 24
+tags = ["audio", "bar", "panel", "service", "hardware", "indicator"]
+
+[[plugin]]
+id = "arrifat346afs/systempulse"
+name = "SystemPulse"
+version = "1.1.0"
+updated_at = 1787832988
+added_at = 1787832988
+author = "arrifat346afs "
+license = "MIT"
+icon = "cpu"
+description = "A bar widget that displays system stats and opens a detailed SystemPulse panel."
+plugin_api = 22
+tags = ["system", "hardware", "utility"]
+
+[[plugin]]
+id = "teagar/omniroute-quota"
+name = "OmniRoute Quota"
+version = "0.1.0"
+updated_at = 1787833165
+added_at = 1787833165
+author = "Teagar"
+license = "MIT"
+icon = "route"
+description = "Monitor Codex 5-hour and weekly quotas for every OmniRoute account."
+plugin_api = 22
+tags = ["ai", "bar", "panel", "service", "indicator", "utility"]
+
+[[plugin]]
+id = "h-jangra/keyviz"
+name = "Key Visualizer"
+version = "0.1.0"
+updated_at = 1787885483
+added_at = 1787885483
+author = "h-jangra"
+license = "MIT"
+icon = "keyboard"
+description = "Real-time floating on-screen keystroke visualizer for Noctalia."
+plugin_api = 13
+tags = ["utility", "bar", "service", "shortcut", "panel"]
+
+[[plugin]]
+id = "kjvdven/case-convert"
+name = "Case Convert"
+version = "1.0.0"
+updated_at = 1788114941
+added_at = 1788114941
+author = "kjvdven"
+license = "MIT"
+icon = "text-recognition"
+description = "Convert text between naming conventions (camelCase, kebab-case, snake_case, …) straight from the launcher."
+plugin_api = 3
+tags = ["launcher", "utility", "development"]
+
+[[plugin]]
+id = "umedbazarov/crashes"
+name = "Crashes"
+version = "1.0.0"
+updated_at = 1788115004
+added_at = 1788115004
+author = "umedbazarov"
+license = "MIT"
+icon = "bug"
+description = "systemd-coredump crash history: desktop notifications, per-program mutes and one-click AI diagnosis in a terminal."
+plugin_api = 9
+tags = ["panel", "utility"]
+
+[[plugin]]
+id = "cleboost/asus-fans-controller-ec"
+name = "Asus Fans Controler EC"
+version = "1.0.0"
+updated_at = 1788115197
+added_at = 1788115197
+author = "Cleboost"
+license = "MIT"
+icon = "car-fan"
+description = "Control ASUS laptop fans via the embedded controller: speeds, sync, and BIOS handoff."
+plugin_api = 9
+tags = ["hardware", "bar", "panel", "service", "system", "indicator"]
+
+[[plugin]]
+id = "nocode-96/cmd-runner"
+name = "Command Runner"
+version = "1.0.0"
+updated_at = 1788115775
+added_at = 1788115775
+author = "Noah B."
+license = "MIT"
+icon = "terminal"
+description = "Save and execute CLI commands silently in the background with a one-time sudo password cache."
+plugin_api = 9
+tags = ["bar", "panel", "service", "utility", "system"]
+
+[[plugin]]
+id = "umedbazarov/layout-fix"
+name = "Layout Fix"
+version = "1.0.1"
+updated_at = 1788121718
+added_at = 1788116003
+author = "umedbazarov"
+license = "MIT"
+icon = "keyboard"
+description = "Fixes text typed in the wrong keyboard layout and switches the layout, Punto-style. Runs quietly in the background."
+plugin_api = 9
+tags = ["system", "utility", "niri"]
+
+[[plugin]]
+id = "umedbazarov/webapp-maker"
+name = "Webapp Maker"
+version = "1.0.0"
+updated_at = 1788117167
+added_at = 1788117167
+author = "umedbazarov"
+license = "MIT"
+icon = "world-plus"
+description = "Turn websites into desktop apps: a launcher entry with the site's icon, opening in its own browser app window."
+plugin_api = 9
+tags = ["panel", "utility"]
+
+[[plugin]]
+id = "linux-fertxo/hyprland-visual-editor"
+name = "Hyprland Visual Editor"
+version = "2.0.1"
+updated_at = 1788198466
+added_at = 1788117624
+author = "XimoCP (v4 original) + Hermy & linux-fertxo (v5 Luau port)"
+license = "MIT"
+icon = "adjustments-horizontal"
+description = "Visually edit Hyprland animations, borders and shaders from a Noctalia panel."
+plugin_api = 3
+tags = ["hyprland", "animation", "theming", "panel", "bar"]
+
+[[plugin]]
+id = "mellotanica/launcher-pass"
+name = "Launcher pass"
+version = "2.6.0"
+updated_at = 1788198606
+added_at = 1788118014
+author = "Marco Melletti"
+license = "MIT"
+icon = "lock"
+description = "Noctalia launcher provider for the GNU Pass password store with autotype and advanced search"
+plugin_api = 26
+tags = ["launcher", "privacy", "productivity", "utility"]
+
+[[plugin]]
+id = "levi/warp"
+name = "Cloudflare WARP"
+version = "1.2.0"
+updated_at = 1788120574
+added_at = 1788120574
+author = "Levi"
+license = "MIT"
+icon = "cloud-lock"
+description = "Toggle Cloudflare WARP from the bar or Control Center."
+plugin_api = 3
+tags = ["bar", "indicator", "network", "privacy", "shortcut"]
+
+[[plugin]]
+id = "notfinaldev/web-search"
+name = "Web Search"
+version = "1.3.0"
+updated_at = 1788121066
+added_at = 1788121066
+author = "notfinaldev"
+license = "MIT"
+icon = "world"
+description = "Open favourite websites or search Google from the Noctalia launcher."
+plugin_api = 18
+tags = ["launcher", "network", "utility"]
+
+[[plugin]]
+id = "notfinaldev/youtube-search"
+name = "YouTube Search"
+version = "1.0.0"
+updated_at = 1788121439
+added_at = 1788121439
+author = "notfinaldev"
+license = "MIT"
+icon = "brand-youtube"
+description = "Search YouTube and open videos from the Noctalia launcher."
+plugin_api = 18
+tags = ["launcher", "media", "network", "video"]
+
+[[plugin]]
+id = "notfinaldev/spotify"
+name = "Spotify Search"
+version = "1.0.0"
+updated_at = 1788121577
+added_at = 1788121577
+author = "notfinaldev"
+license = "MIT"
+icon = "brand-spotify"
+description = "Search and play Spotify tracks with cached album artwork."
+plugin_api = 3
+tags = ["launcher", "media", "music"]
+
+[[plugin]]
+id = "cleboost/librelinkup"
+name = "LibreLinkUp"
+version = "1.0.0"
+updated_at = 1788121859
+added_at = 1788121859
+author = "Cleboost"
+license = "MIT"
+icon = "droplet"
+description = "Display your LibreLinkUp blood glucose on the bar with trend arrow."
+plugin_api = 9
+tags = ["bar", "service", "utility", "indicator"]
